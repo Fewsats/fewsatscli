@@ -1,6 +1,10 @@
 BINARY_NAME=fewsatscli
 RELEASE_DIR=$(BINARY_NAME)-v$(VERSION)
-LDFLAGS=-ldflags "-X github.com/fewsats/fewsatscli/version.Commit=$(shell git describe --tags --always)"
+GITVERSION := $(shell git describe --tags --abbrev=0)
+HASH := $(shell git rev-parse --short HEAD)
+FULL_VERSION := $(GITVERSION)-$(HASH)
+
+LDFLAGS=-ldflags "-X github.com/fewsats/fewsatscli/version.Commit=$(FULL_VERSION)"
 
 PLATFORMS=darwin/amd64 darwin/arm64 linux/386 linux/amd64 linux/arm linux/arm64 windows/386 windows/amd64
 

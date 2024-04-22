@@ -12,7 +12,7 @@ var (
 	Minor = 2
 
 	// Patch is the patch version number.
-	Patch = 1
+	Patch = 2
 
 	// Commit is the commit the application was built on.
 	Commit = ""
