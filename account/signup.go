@@ -6,9 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"strings"
+	"syscall"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/term"
 )
 
 const (
@@ -17,25 +20,9 @@ const (
 )
 
 var signUpCommand = &cli.Command{
-	Name:  "signup",
-	Usage: "Create a new account.",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "email",
-			Usage:    "The email address of the account.",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "password",
-			Usage:    "The password of the account.",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "password-confirmation",
-			Usage:    "The password confirmation, must match the password.",
-			Required: true,
-		},
-	},
+	Name:   "signup",
+	Usage:  "Create a new account.",
+	Flags:  []cli.Flag{},
 	Action: signup,
 }
 
@@ -48,9 +35,28 @@ type SignupRequest struct {
 
 // signup creates a new account.
 func signup(c *cli.Context) error {
-	email := c.String("email")
-	password := c.String("password")
-	passwordConfirmation := c.String("password-confirmation")
+	fmt.Print("Enter Email: ")
+	var email string
+	fmt.Scanln(&email)
+
+	// Read password
+	fmt.Print("Enter Password: ")
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return cli.Exit("Failed to read password", 1)
+	}
+	password := strings.TrimSpace(string(bytePassword))
+
+	// Read password confirmation
+	fmt.Print("\nConfirm Password: ")
+	bytePasswordConfirmation, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return cli.Exit("Failed to read password confirmation", 1)
+	}
+	passwordConfirmation := strings.TrimSpace(string(bytePasswordConfirmation))
+
+	// Newline for the next prompt.
+	fmt.Println()
 
 	// Check if the email address is valid.
 	if _, err := mail.ParseAddress(email); err != nil {
@@ -100,6 +106,7 @@ func signup(c *cli.Context) error {
 		slog.Debug(
 			"Failed to create account.",
 			"status_code", resp.StatusCode,
+			"body", resp.Body,
 		)
 
 		return cli.Exit("Failed to create account.", 1)

@@ -1,20 +1,18 @@
 package apikeys
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/fewsats/fewsatscli/config"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	"github.com/urfave/cli/v2"
 )
@@ -140,10 +138,9 @@ func newApiKey(c *cli.Context) error {
 	// the user and create a new API key using a cookie session.
 	fmt.Print("Login with your user account to create a new API key.\n")
 
-	reader := bufio.NewReader(os.Stdin)
-
 	fmt.Print("Enter email: ")
-	email, err := reader.ReadString('\n')
+	var email string
+	_, err = fmt.Scanln(&email)
 	if err != nil {
 		slog.Debug(
 			"Failed to read email.",
@@ -154,7 +151,7 @@ func newApiKey(c *cli.Context) error {
 	}
 
 	fmt.Print("Enter password: ")
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		slog.Debug(
 			"Failed to read password.",

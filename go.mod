@@ -7,7 +7,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/lightningnetwork/lnd v0.17.3-beta
 	github.com/urfave/cli/v2 v2.27.1
-	golang.org/x/crypto v0.22.0
+	golang.org/x/term v0.19.0
 )
 
 require (
@@ -43,8 +43,8 @@ require (
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
 )
