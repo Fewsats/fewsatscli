@@ -23,3 +23,4 @@ go.work
 fewsatscli
 fewsatscli-v*
 .env
+.DS_Store
