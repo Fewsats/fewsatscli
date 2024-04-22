@@ -1,14 +1,13 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/btcsuite/btcd/chaincfg"
@@ -97,14 +96,6 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return resp, nil
 	}
 
-	fmt.Println("L402 Payment required received")
-	fmt.Println("Auth header: ", resp.Header.Get("WWW-Authenticate"))
-	reader := bufio.NewReader(os.Stdin)
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return nil, fmt.Errorf("unable to read user input: %w", err)
-	}
-
 	macaroon, invoice, err := ParseL402Challenge(resp)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse L402 challenge: %w", err)
@@ -119,7 +110,8 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 	fmt.Printf("Lightning invoice price: %d sats\n", invoicePrice)
 	fmt.Print("Do you want to continue? (Y/n): ")
 
-	input, err := reader.ReadString('\n')
+	var input string
+	_, err = fmt.Scanln(&input)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read user input: %w", err)
 	}
@@ -134,7 +126,12 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("unable to pay invoice: %w", err)
 	}
 
-	fmt.Printf("Preimage: %s\n", preimage)
+	slog.Debug(
+		"Paid invoice",
+		"macaroon", macaroon,
+		"invoice", invoice,
+		"preimage", preimage,
+	)
 
 	req.Header.Set("Authorization", fmt.Sprintf("L402 %s:%s", macaroon, preimage))
 	resp, err = c.client.Do(req)
