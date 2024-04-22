@@ -9,14 +9,15 @@ import (
 	"github.com/fewsats/fewsatscli/apikeys"
 	"github.com/fewsats/fewsatscli/config"
 	"github.com/fewsats/fewsatscli/storage"
+	"github.com/fewsats/fewsatscli/version"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-
 	app := &cli.App{
 		Name:                 "Fewsats CLI",
 		Usage:                "Interact with the Fewsats Platform.",
+		Version:              version.Version(),
 		EnableBashCompletion: true,
 		Before: func(c *cli.Context) error {
 			cfg, err := config.GetConfig()

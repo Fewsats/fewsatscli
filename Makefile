@@ -1,5 +1,6 @@
 BINARY_NAME=fewsatscli
 RELEASE_DIR=$(BINARY_NAME)-v$(VERSION)
+LDFLAGS=-ldflags "-X github.com/fewsats/fewsatscli/version.Commit=$(shell git describe --tags --always)"
 
 PLATFORMS=darwin/amd64 darwin/arm64 linux/386 linux/amd64 linux/arm linux/arm64 windows/386 windows/amd64
 
@@ -8,7 +9,7 @@ PLATFORMS=darwin/amd64 darwin/arm64 linux/386 linux/amd64 linux/arm linux/arm64 
 all: build
 
 build:
-	go build -o $(BINARY_NAME) ./cmd/cli
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/cli
 
 release:
 	@if [ -z "$(VERSION)" ]; then \
