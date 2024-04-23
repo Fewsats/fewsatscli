@@ -108,7 +108,7 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 
 	fmt.Printf("URL: %s\n", url)
 	fmt.Printf("Lightning invoice price: %d sats\n", invoicePrice)
-	fmt.Print("Do you want to continue? (Y/n): ")
+	fmt.Print("Do you want to continue? (y/N): ")
 
 	var input string
 	_, err = fmt.Scanln(&input)
