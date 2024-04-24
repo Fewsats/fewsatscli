@@ -45,7 +45,7 @@ You will need to provide an email and a password. After signing up, you will nee
 
 To create a new API key, run:
 ```
-fewsatscli apikey new
+fewsatscli apikeys new
 ```
 API keys expire after 28 days by default. You need a valid API key in your `~/.fewsatscli` configuration file to use most of the commands in this CLI.
 
