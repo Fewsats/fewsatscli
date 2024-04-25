@@ -3,6 +3,7 @@ package account
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/mail"
@@ -103,10 +104,18 @@ func signup(c *cli.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Debug(
+				"Failed to read response body.",
+				"error", err,
+			)
+		}
+
 		slog.Debug(
 			"Failed to create account.",
 			"status_code", resp.StatusCode,
-			"body", resp.Body,
+			"body", string(bodyBytes),
 		)
 
 		return cli.Exit("Failed to create account.", 1)
