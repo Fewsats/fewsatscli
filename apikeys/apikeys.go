@@ -10,6 +10,8 @@ func Command() *cli.Command {
 		Usage: "Interact with api keys.",
 		Subcommands: []*cli.Command{
 			createCommand,
+			listCommand,
+			disableCommand,
 		},
 	}
 }
