@@ -24,7 +24,7 @@ func main() {
 
 	fewsatsDir := filepath.Join(homeDir, ".fewsats")
 	if _, err := os.Stat(fewsatsDir); os.IsNotExist(err) {
-		err = os.Mkdir(fewsatsDir, 0755) // Create the directory with read/write/execute permissions for the owner
+		err = os.Mkdir(fewsatsDir, 0755)
 		if err != nil {
 			log.Fatal("Failed to create .fewsats directory:", err)
 		}
