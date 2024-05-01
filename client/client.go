@@ -12,15 +12,17 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/fewsats/fewsatscli/store"
 	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 // HttpClient is an HTTP client for interacting with the Fewsats API.
 type HttpClient struct {
-	client    *http.Client
-	apiKey    string
-	domain    string
-	albyToken string
+	client        *http.Client
+	apiKey        string
+	domain        string
+	albyToken     string
+	sessionCookie *http.Cookie
 }
 
 // NewHTTPClient creates a new HTTP client for interacting with the Fewsats API.
@@ -30,18 +32,25 @@ func NewHTTPClient() (*HttpClient, error) {
 		return nil, fmt.Errorf("unable to create http client: %w", err)
 	}
 
+	store := store.GetStore()
+	apiKey, err := store.GetAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get valid API key: %w", err)
+	}
+
 	return &HttpClient{
 		client:    &http.Client{},
-		apiKey:    cfg.APIKey,
+		apiKey:    apiKey,
 		domain:    cfg.Domain,
 		albyToken: cfg.AlbyToken,
 	}, nil
 }
 
-// ExecuteRequest executes an HTTP request with the given method, path, and body.
-func (c *HttpClient) ExecuteRequest(method, path string,
-	body []byte) (*http.Response, error) {
+func (c *HttpClient) SetSessionCookie(sessionCookie *http.Cookie) {
+	c.sessionCookie = sessionCookie
+}
 
+func (c *HttpClient) ExecuteRequest(method, path string, body []byte) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.domain, path)
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
@@ -50,6 +59,10 @@ func (c *HttpClient) ExecuteRequest(method, path string,
 
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+
+	if c.sessionCookie != nil {
+		req.AddCookie(c.sessionCookie)
 	}
 
 	if body != nil {
