@@ -50,19 +50,24 @@ func (c *HttpClient) SetSessionCookie(sessionCookie *http.Cookie) {
 	c.sessionCookie = sessionCookie
 }
 
-func (c *HttpClient) ExecuteRequest(method, path string, body []byte) (*http.Response, error) {
+func (c *HttpClient) ExecuteRequest(method, path string,
+	body []byte) (*http.Response, error) {
+
 	url := fmt.Sprintf("%s%s", c.domain, path)
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
+	// do not require auth for signup / login
+	requireAuth := !strings.Contains(path, "/signup") && !strings.Contains(path, "/login")
+	switch {
+	case c.apiKey != "":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	}
-
-	if c.sessionCookie != nil {
+	case c.sessionCookie != nil:
 		req.AddCookie(c.sessionCookie)
+	case requireAuth:
+		return nil, fmt.Errorf("you need to log in to run this command")
 	}
 
 	if body != nil {
