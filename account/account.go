@@ -10,6 +10,7 @@ func Command() *cli.Command {
 		Usage: "Interact with your account.",
 		Subcommands: []*cli.Command{
 			signUpCommand,
+			loginCommand,
 		},
 	}
 }
