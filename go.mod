@@ -4,8 +4,10 @@ go 1.21.4
 
 require (
 	github.com/btcsuite/btcd v0.23.5-0.20230905170901-80f5a0ffdf36
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lightningnetwork/lnd v0.17.3-beta
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/term v0.19.0
 )

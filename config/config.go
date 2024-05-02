@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -16,7 +17,10 @@ const (
 )
 
 var (
-	loadedConfig *Config
+	loadedConfig  *Config
+	defaultConfig = map[string]string{
+		"LOG_LEVEL": "info",
+	}
 )
 
 type Config struct {
@@ -24,6 +28,15 @@ type Config struct {
 	Domain    string
 	AlbyToken string
 	LogLevel  string
+	ConfigDir string
+}
+
+func getDefaultConfigContent() string {
+	var lines []string
+	for key, value := range defaultConfig {
+		lines = append(lines, fmt.Sprintf(`%s="%s"`, key, value))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func GetConfig() (*Config, error) {
@@ -37,21 +50,29 @@ func GetConfig() (*Config, error) {
 		return nil, fmt.Errorf("unable to get current OS user: %w", err)
 	}
 
-	// Construct the path to the .fewsatscli file
-	filepath := filepath.Join(usr.HomeDir, ".fewsatscli")
+	// Construct the path to the config file (~/.fewsats/config)
+	configDir := filepath.Join(usr.HomeDir, ".fewsats")
+	configFilePath := filepath.Join(configDir, "config")
 
-	// Check if the file exists
-	if _, err := os.Stat(filepath); err == nil {
-		slog.Debug("Loading .fewsatscli file...\n")
-
-		// If the file exists, load it
-		err = godotenv.Load(filepath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load .fewsatscli file: %w", err)
+	// Check if the config file exists
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		slog.Debug("Config file not found. Creating default config file...\n")
+		defaultContent := getDefaultConfigContent()
+		// Create the file with default content if it does not exist
+		if err := os.WriteFile(configFilePath, []byte(defaultContent), 0644); err != nil {
+			return nil, fmt.Errorf("failed to create default config file: %w", err)
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to check config file: %w", err)
 	}
 
-	// Set global config from .fewsatscli file
+	// Load the config file
+	err = godotenv.Load(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load config file: %w", err)
+	}
+
+	// Set global config from file
 	domain, exists := os.LookupEnv("DOMAIN")
 	if !exists {
 		domain = baseURL
@@ -69,6 +90,7 @@ func GetConfig() (*Config, error) {
 		Domain:    domain,
 		AlbyToken: albyToken,
 		LogLevel:  logLevel,
+		ConfigDir: configDir,
 	}
 
 	return loadedConfig, nil
