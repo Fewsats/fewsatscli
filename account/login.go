@@ -53,12 +53,12 @@ func LoginCLI(c *cli.Context) error {
 	fmt.Println()
 
 	// Perform the login using the email and password
-	sessionCookie, err := Login(email, password)
+	_, err = Login(email, password)
 	if err != nil {
 		return cli.Exit("Login failed: "+err.Error(), 1)
 	}
 
-	fmt.Println("Login successful. Session:", sessionCookie.Value)
+	fmt.Println("Login successful.")
 	return nil
 }
 
@@ -128,10 +128,9 @@ func Login(email, password string) (*http.Cookie, error) {
 		return nil, cli.Exit("Failed to create API key on login.", 1)
 	}
 
-	fmt.Println("API key created on login.")
-	fmt.Println("API key:", apiKey)
-	fmt.Println("Expires at:", expiresAt)
+	slog.Debug("API key created on login.")
+	slog.Debug("API key:", "apiKey", apiKey)
+	slog.Debug("Expires at:", "expiresAt", expiresAt)
 
-	fmt.Println("Login successful.", sessionCookie.Value)
 	return sessionCookie, nil
 }

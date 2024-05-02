@@ -19,7 +19,7 @@ const (
 var (
 	loadedConfig  *Config
 	defaultConfig = map[string]string{
-		"LOG_LEVEL": "debug",
+		"LOG_LEVEL": "info",
 	}
 )
 
