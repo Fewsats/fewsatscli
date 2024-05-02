@@ -22,14 +22,19 @@ var listCommand = &cli.Command{
 
 func printKeys(keys []store.APIKey) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "ID\t Key\t ExpiresAt")
+	fmt.Fprintln(w, "ID\t Key\t ExpiresAt\t Enabled")
 	for _, key := range keys {
-		fmt.Fprintf(w, "%d\t %s\t %s\n", key.ID, key.HiddenKey, key.ExpiresAt)
+		fmt.Fprintf(w, "%d\t %s\t %s\t %t\n", key.ID, key.HiddenKey, key.ExpiresAt, key.Enabled)
 	}
 	w.Flush()
 }
 
 func listAPIKeys(c *cli.Context) error {
+	err := client.RequiresLogin()
+	if err != nil {
+		return cli.Exit("You need to log in to run this command.", 1)
+	}
+
 	client, err := client.NewHTTPClient()
 	if err != nil {
 		slog.Debug("Failed to create HTTP client.", "error", err)
@@ -49,8 +54,7 @@ func listAPIKeys(c *cli.Context) error {
 	}
 
 	var response struct {
-		Keys       []store.APIKey `json:"keys"`
-		TotalCount int            `json:"total_count"`
+		Keys []store.APIKey `json:"keys"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {

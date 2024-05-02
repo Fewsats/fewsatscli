@@ -42,6 +42,7 @@ type CreateAPIKeyRequest struct {
 type CreateAPIKeyResponse struct {
 	APIKey    string     `json:"apikey"`
 	ExpiresAt *time.Time `json:"expires_at"`
+	UserID    int64      `json:"user_id"`
 }
 
 // CreateAPIKey is an exported function to create an API key.
@@ -83,7 +84,7 @@ func CreateAPIKey(duration time.Duration, sessionCookie *http.Cookie) (string, *
 
 	// Store the API key in the database
 	store := store.GetStore()
-	_, err = store.InsertAPIKey(respData.APIKey, *respData.ExpiresAt)
+	_, err = store.InsertAPIKey(respData.APIKey, *respData.ExpiresAt, respData.UserID)
 	if err != nil {
 		slog.Debug("Failed to insert API key into database.", "error", err)
 		return "", nil, err
@@ -94,6 +95,11 @@ func CreateAPIKey(duration time.Duration, sessionCookie *http.Cookie) (string, *
 
 // newApiKey creates a new api key.
 func newApiKey(c *cli.Context) error {
+	err := client.RequiresLogin()
+	if err != nil {
+		return cli.Exit("You need to log in to run this command.", 1)
+	}
+
 	duration := c.Duration("duration")
 	apiKey, expiresAt, err := CreateAPIKey(duration, nil)
 	if err != nil {

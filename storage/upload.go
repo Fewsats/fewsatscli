@@ -67,6 +67,11 @@ var uploadFileCommand = &cli.Command{
 
 // uploadFile uploads a file to the storage service.
 func uploadFile(c *cli.Context) error {
+	err := client.RequiresLogin()
+	if err != nil {
+		return cli.Exit("You need to log in to run this command.", 1)
+	}
+
 	cfg, err := config.GetConfig()
 	if err != nil {
 		slog.Debug(
