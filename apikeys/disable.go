@@ -16,6 +16,11 @@ var disableCommand = &cli.Command{
 }
 
 func disableAPIKey(c *cli.Context) error {
+	err := client.RequiresLogin()
+	if err != nil {
+		return cli.Exit("You need to log in to run this command.", 1)
+	}
+
 	if c.Args().Len() < 1 {
 		return cli.Exit("API key ID is required", 1)
 	}

@@ -12,15 +12,17 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/fewsats/fewsatscli/store"
 	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 // HttpClient is an HTTP client for interacting with the Fewsats API.
 type HttpClient struct {
-	client    *http.Client
-	apiKey    string
-	domain    string
-	albyToken string
+	client        *http.Client
+	apiKey        string
+	domain        string
+	albyToken     string
+	sessionCookie *http.Cookie
 }
 
 // NewHTTPClient creates a new HTTP client for interacting with the Fewsats API.
@@ -30,15 +32,24 @@ func NewHTTPClient() (*HttpClient, error) {
 		return nil, fmt.Errorf("unable to create http client: %w", err)
 	}
 
+	store := store.GetStore()
+	apiKey, err := store.GetAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get valid API key: %w", err)
+	}
+
 	return &HttpClient{
 		client:    &http.Client{},
-		apiKey:    cfg.APIKey,
+		apiKey:    apiKey,
 		domain:    cfg.Domain,
 		albyToken: cfg.AlbyToken,
 	}, nil
 }
 
-// ExecuteRequest executes an HTTP request with the given method, path, and body.
+func (c *HttpClient) SetSessionCookie(sessionCookie *http.Cookie) {
+	c.sessionCookie = sessionCookie
+}
+
 func (c *HttpClient) ExecuteRequest(method, path string,
 	body []byte) (*http.Response, error) {
 
@@ -48,8 +59,19 @@ func (c *HttpClient) ExecuteRequest(method, path string,
 		return nil, fmt.Errorf("unable to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
+	// do not require auth for signup / login
+	requireAuth := !strings.Contains(path, "/signup") &&
+		!strings.Contains(path, "/login")
+
+	switch {
+	case c.apiKey != "":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	case c.sessionCookie != nil:
+		req.AddCookie(c.sessionCookie)
+	case requireAuth:
+		// this should not happen, because we use RequiresLogin() to check
+		// if the user is logged in beforehand
+		return nil, fmt.Errorf("you need to log in to run this command")
 	}
 
 	if body != nil {
@@ -256,4 +278,58 @@ func DecodePrice(invoice string) (uint64, error) {
 	}
 
 	return uint64(msat / 1000), nil
+}
+
+// RequiresLogin checks for a valid API key and verifies it against
+// the /authorize endpoint.
+func RequiresLogin() error {
+	store := store.GetStore()
+	apiKeys, err := store.GetEnabledAPIKeys()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve API keys: %w", err)
+	}
+
+	for _, apiKey := range apiKeys {
+		resp, err := verifyAPIKey(apiKey.Key)
+		if err != nil {
+			return fmt.Errorf("failed to verify API key: %w", err)
+		}
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+			return nil
+		}
+		store.DisableAPIKey(apiKey.ID)
+	}
+
+	return fmt.Errorf("no valid API keys found")
+}
+
+// verifyAPIKey makes a request to the /authorize endpoint to check if the API
+// key is still valid.
+func verifyAPIKey(key string) (*http.Response, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create http client: %w", err)
+	}
+
+	// using list apikeys to verify, ideally change to a custom authorize endpoint
+	url := fmt.Sprintf("%s%s", cfg.Domain, "/v0/auth/apikeys")
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		slog.Debug("Failed to create request", "error", err, "key", key)
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Debug("Failed to execute authorize request", "error", err,
+			"key", key)
+
+		return nil, err
+	}
+
+	return resp, nil
 }
