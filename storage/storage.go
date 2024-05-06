@@ -12,6 +12,7 @@ func Command() *cli.Command {
 			uploadFileCommand,
 			downloadFileCommand,
 			listCommand,
+			getCommand,
 		},
 	}
 }

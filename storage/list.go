@@ -34,10 +34,11 @@ var listCommand = &cli.Command{
 
 func printFiles(files []File) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "Name\t Updated At\t URL")
+	fmt.Fprintln(w, "ID\t Name\t Updated At\t URL")
 	for _, file := range files {
 		updatedAt := file.UpdatedAt.Local().Format("2006-01-02 15:04")
-		fmt.Fprintf(w, "%s\t %s\t %s\n", file.Name, updatedAt, file.StorageURL)
+		fmt.Fprintf(w, "%s\t %s\t %s\t %s\n",
+			file.ExternalID, file.Name, updatedAt, file.StorageURL)
 	}
 	w.Flush()
 }
