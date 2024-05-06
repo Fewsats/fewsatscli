@@ -14,6 +14,7 @@ func Command() *cli.Command {
 			listCommand,
 			getCommand,
 			updateCommand,
+			deleteCommand,
 		},
 	}
 }
