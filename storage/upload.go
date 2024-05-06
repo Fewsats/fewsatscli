@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -31,7 +32,8 @@ type UploadFileRequest struct {
 
 // UploadFileResponse is the response body for the upload endpoint.
 type UploadFileResponse struct {
-	FileID string `json:"file_id"`
+	FileID       string `json:"file_id"`
+	PresignedURL string `json:"presigned_url"`
 }
 
 var uploadFileCommand = &cli.Command{
@@ -190,8 +192,48 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("failed to decode response", 1)
 	}
 
+	if respBody.PresignedURL != "" {
+		err = uploadFileToPresignedURL(respBody.PresignedURL, file)
+		if err != nil {
+			return cli.Exit("failed to upload file to presigned URL", 1)
+		}
+	}
+
 	fmt.Println("File uploaded successfully.")
 	fmt.Println("Download URL: ", cfg.Domain+downloadFilePath+"/"+respBody.FileID)
+
+	return nil
+}
+
+// uploadFileToPresignedURL uploads the file to the presigned URL.
+func uploadFileToPresignedURL(presignedURL string, file []byte) error {
+	req, err := http.NewRequest(http.MethodPut, presignedURL, bytes.NewReader(file))
+	if err != nil {
+		slog.Debug(
+			"Failed to create request to presigned URL.",
+			"error", err,
+		)
+		return err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Debug(
+			"Failed to upload file to presigned URL.",
+			"error", err,
+		)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug(
+			"Upload to presigned URL failed.",
+			"status_code", resp.StatusCode,
+		)
+		return fmt.Errorf("upload to presigned URL failed with status code %d", resp.StatusCode)
+	}
 
 	return nil
 }

@@ -14,15 +14,13 @@ import (
 )
 
 type File struct {
-	ID              uint64    `json:"id"`
 	ExternalID      string    `json:"external_id"`
-	UserID          uint64    `json:"user_id"`
 	Name            string    `json:"name"`
 	Description     string    `json:"description"`
 	Size            uint64    `json:"size"`
 	Extension       string    `json:"extension"`
 	MimeType        string    `json:"mime_type"`
-	StorageUrl      string    `json:"storage_url"`
+	StorageURL      string    `json:"storage_url"`
 	PriceInUsdCents uint64    `json:"price_in_usd_cents"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -36,9 +34,10 @@ var listCommand = &cli.Command{
 
 func printFiles(files []File) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "ID\t Name\t URL")
+	fmt.Fprintln(w, "Name\t Updated At\t URL")
 	for _, file := range files {
-		fmt.Fprintf(w, "%d\t %s\t %s\n", file.ID, file.Name, file.StorageUrl)
+		updatedAt := file.UpdatedAt.Local().Format("2006-01-02 15:04")
+		fmt.Fprintf(w, "%s\t %s\t %s\n", file.Name, updatedAt, file.StorageURL)
 	}
 	w.Flush()
 }
