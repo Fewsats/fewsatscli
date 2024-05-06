@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
@@ -11,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/fewsats/fewsatscli/client"
-	"github.com/fewsats/fewsatscli/config"
 	"github.com/urfave/cli/v2"
 )
 
@@ -25,13 +26,27 @@ type UploadFileRequest struct {
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	PriceInCents uint64 `json:"price_in_usd_cents"`
-	File         []byte `json:"file"`
 	FileURL      string `json:"file_url"`
+}
+
+// MultipartUploadRequest is adjusted to include multipart details
+type MultipartUploadRequest struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	PriceInCents uint64 `json:"price_in_cents"`
+	NumParts     int    `json:"num_parts"`
+	PartSize     int    `json:"part_size"`
 }
 
 // UploadFileResponse is the response body for the upload endpoint.
 type UploadFileResponse struct {
-	FileID string `json:"file_id"`
+	UploadID      string   `json:"upload_id"`
+	PresignedURLs []string `json:"presigned_urls"`
+}
+
+type MultipartUploadInitResponse struct {
+	UploadID      string   `json:"upload_id"`
+	PresignedURLs []string `json:"presigned_urls"`
 }
 
 var uploadFileCommand = &cli.Command{
@@ -65,21 +80,11 @@ var uploadFileCommand = &cli.Command{
 	Action: uploadFile,
 }
 
-// uploadFile uploads a file to the storage service.
+// uploadFile uploads a file to the storage service based on the input type.
 func uploadFile(c *cli.Context) error {
 	err := client.RequiresLogin()
 	if err != nil {
 		return cli.Exit("You need to log in to run this command.", 1)
-	}
-
-	cfg, err := config.GetConfig()
-	if err != nil {
-		slog.Debug(
-			"Failed to get config.",
-			"error", err,
-		)
-
-		return cli.Exit("failed to get config", 1)
 	}
 
 	name := c.String("name")
@@ -117,81 +122,161 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("price must be a number (ex: 10.95)", 1)
 	}
 
-	var file []byte
 	if filePath != "" {
-		file, err = os.ReadFile(filePath)
-		if err != nil {
-			slog.Debug(
-				"Failed to read file.",
-				"error", err,
-			)
+		return handleMultipartUpload(c, filePath, name, description, price)
+	} else {
+		return cli.Exit("file-url upload not supported yet", 1)
+		// return handleServerSideUpload(c, fileURL, name, description, price)
+	}
+}
 
-			return cli.Exit("failed to read file", 1)
-		}
+// handleMultipartUpload handles the multipart upload of a local file.
+func handleMultipartUpload(c *cli.Context, filePath, name, description string, price float64) error {
+	numParts, partSize, err := calculateUploadParts(filePath)
+	if err != nil {
+		slog.Debug("Failed to prepare multipart upload data", "error", err)
+		return cli.Exit("failed to prepare multipart upload data", 1)
 	}
 
-	req := &UploadFileRequest{
+	// Prepare the request to initiate multipart upload
+	uploadData := MultipartUploadRequest{
 		Name:         name,
 		Description:  description,
 		PriceInCents: uint64(math.Floor(price * 100)),
-		File:         file,
-		FileURL:      fileURL,
+		NumParts:     numParts,
+		PartSize:     partSize,
 	}
 
-	reqBody, err := json.Marshal(req)
+	reqBody, err := json.Marshal(uploadData)
 	if err != nil {
-		slog.Debug(
-			"Failed to marshal request.",
-			"error", err,
-		)
-
-		return cli.Exit("failed to marshal request", 1)
+		slog.Debug("Failed to marshal upload data", "error", err)
+		return cli.Exit("failed to marshal upload data", 1)
 	}
 
-	client, err := client.NewHTTPClient()
+	// Send the initiation request
+	httpClient, err := client.NewHTTPClient()
 	if err != nil {
-		slog.Debug(
-			"Failed to create HTTP client.",
-			"error", err,
-		)
-
+		slog.Debug("Failed to create HTTP client", "error", err)
 		return cli.Exit("failed to create HTTP client", 1)
 	}
 
-	method := http.MethodPost
-	resp, err := client.ExecuteRequest(method, uploadFilePath, reqBody)
+	resp, err := httpClient.ExecuteRequest(http.MethodPost, uploadFilePath, reqBody)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		slog.Debug("Failed to initiate multipart upload", "error", err, "statusCode", resp.StatusCode)
+		return cli.Exit("failed to initiate multipart upload", 1)
+	}
+
+	var initResp MultipartUploadInitResponse
+	err = json.NewDecoder(resp.Body).Decode(&initResp)
 	if err != nil {
-		slog.Debug(
-			"Failed to execute request.",
-			"error", err,
-		)
-
-		return cli.Exit("failed to execute request", 1)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Debug(
-			"Request failed",
-			"status_code", resp.StatusCode,
-		)
-
-		return cli.Exit("failed to upload file", 1)
+		slog.Debug("Failed to decode initiation response", "error", err)
+		return cli.Exit("failed to decode initiation response", 1)
 	}
 
-	var respBody UploadFileResponse
-	err = json.NewDecoder(resp.Body).Decode(&respBody)
+	fmt.Printf("initResp: %+v\n", initResp)
+	// Example usage of the new response structure
+	if len(initResp.PresignedURLs) == 0 {
+		return cli.Exit("no presigned URLs received", 1)
+	}
+
+	// Upload each part
+	file, err := os.Open(filePath)
 	if err != nil {
-		slog.Debug(
-			"Failed to decode response.",
-			"error", err,
-		)
+		slog.Debug("Failed to open file for reading", "error", err)
+		return cli.Exit("failed to open file for reading", 1)
+	}
+	defer file.Close()
+	var etags []string
 
-		return cli.Exit("failed to decode response", 1)
+	buffer := make([]byte, partSize)
+	for i, url := range initResp.PresignedURLs {
+		bytesRead, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			slog.Debug("Failed to read file part", "error", err)
+			return cli.Exit("failed to read file part", 1)
+		}
+
+		partURL := url + "&partNumber=" + strconv.Itoa(i) + "&uploadId=" + initResp.UploadID
+		req, err := http.NewRequest("PUT", partURL, bytes.NewReader(buffer[:bytesRead]))
+		if err != nil {
+			slog.Debug("Failed to create request for part upload", "error", err)
+			return cli.Exit("failed to create request for part upload", 1)
+		}
+
+		partResp, err := http.DefaultClient.Do(req)
+		if err != nil || partResp.StatusCode != http.StatusOK {
+			slog.Debug("Failed to upload part", "error", err, "statusCode", partResp.StatusCode)
+			return cli.Exit("failed to upload part", 1)
+		}
+		etags = append(etags, partResp.Header.Get("ETag"))
+
 	}
 
-	fmt.Println("File uploaded successfully.")
-	fmt.Println("Download URL: ", cfg.Domain+downloadFilePath+"/"+respBody.FileID)
+	// Notify server of completion
+	completeURL := initResp.PresignedURLs[0] + "?uploadId=" + initResp.UploadID
+	completeReq := struct {
+		Parts []struct {
+			ETag       string `json:"etag"`
+			PartNumber int    `json:"part_number"`
+		} `json:"parts"`
+	}{
+		Parts: make([]struct {
+			ETag       string `json:"etag"`
+			PartNumber int    `json:"part_number"`
+		}, len(etags)),
+	}
+	for i, etag := range etags {
+		completeReq.Parts[i].ETag = etag
+		completeReq.Parts[i].PartNumber = i + 1
+	}
 
+	reqBody, err = json.Marshal(completeReq)
+	if err != nil {
+		slog.Debug("Failed to marshal completion request", "error", err)
+		return cli.Exit("failed to marshal completion request", 1)
+	}
+
+	req, err := http.NewRequest("POST", completeURL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		slog.Debug("Failed to create completion request", "error", err)
+		return cli.Exit("failed to create completion request", 1)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		slog.Debug("Failed to complete multipart upload", "error", err, "statusCode", resp.StatusCode)
+		return cli.Exit("failed to complete multipart upload", 1)
+	}
+
+	fmt.Println("File uploaded successfully")
 	return nil
+}
+
+// prepareMultipartUploadData prepares the necessary data for a multipart upload request.
+func calculateUploadParts(filePath string) (int, int, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		slog.Debug("Failed to open file", "error", err)
+		return 0, 0, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		slog.Debug("Failed to get file info", "error", err)
+		return 0, 0, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	const partSize = 125 * 1024 * 1024 // 125MB
+	numParts := int(math.Ceil(float64(fileInfo.Size()) / float64(partSize)))
+
+	return numParts, partSize, nil
+	// return &UploadFileRequest{
+	// 	Name:         filepath.Base(filePath),
+	// 	Description:  "Description of the file", // This should be dynamically set based on context or user input
+	// 	PriceInCents: 100,                       // This should be dynamically set based on context or user input
+	// 	NumParts:     numParts,
+	// 	PartSize:     partSize,
+	// }, nil
 }
