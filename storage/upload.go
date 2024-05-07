@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -23,11 +22,11 @@ const (
 
 // UploadFileRequest is the request body for the upload endpoint.
 type UploadFileRequest struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	PriceInCents uint64 `json:"price_in_usd_cents"`
-	File         []byte `json:"file"`
-	FileURL      string `json:"file_url"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	PriceInCents uint64   `json:"price_in_usd_cents"`
+	File         *os.File `json:"file"`
+	FileURL      string   `json:"file_url"`
 }
 
 // UploadFileResponse is the response body for the upload endpoint.
@@ -119,9 +118,9 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("price must be a number (ex: 10.95)", 1)
 	}
 
-	var file []byte
+	var file *os.File
 	if filePath != "" {
-		file, err = os.ReadFile(filePath)
+		file, err = os.Open(filePath)
 		if err != nil {
 			slog.Debug(
 				"Failed to read file.",
@@ -130,6 +129,7 @@ func uploadFile(c *cli.Context) error {
 
 			return cli.Exit("failed to read file", 1)
 		}
+		defer file.Close()
 	}
 
 	req := &UploadFileRequest{
@@ -206,8 +206,8 @@ func uploadFile(c *cli.Context) error {
 }
 
 // uploadFileToPresignedURL uploads the file to the presigned URL.
-func uploadFileToPresignedURL(presignedURL string, file []byte) error {
-	req, err := http.NewRequest(http.MethodPut, presignedURL, bytes.NewReader(file))
+func uploadFileToPresignedURL(presignedURL string, file *os.File) error {
+	req, err := http.NewRequest(http.MethodPut, presignedURL, file)
 	if err != nil {
 		slog.Debug(
 			"Failed to create request to presigned URL.",
@@ -215,6 +215,17 @@ func uploadFileToPresignedURL(presignedURL string, file []byte) error {
 		)
 		return err
 	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		slog.Debug(
+			"Failed to get file stats.",
+			"error", err,
+		)
+		return err
+	}
+
+	req.ContentLength = stat.Size()
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
