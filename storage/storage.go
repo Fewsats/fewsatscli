@@ -11,6 +11,7 @@ func Command() *cli.Command {
 		Subcommands: []*cli.Command{
 			uploadFileCommand,
 			downloadFileCommand,
+			listCommand,
 		},
 	}
 }
