@@ -15,6 +15,7 @@ func Command() *cli.Command {
 			getCommand,
 			updateCommand,
 			deleteCommand,
+			searchCommand,
 		},
 	}
 }

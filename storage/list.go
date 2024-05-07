@@ -55,7 +55,7 @@ func listFiles(c *cli.Context) error {
 		return cli.Exit("Failed to create HTTP client.", 1)
 	}
 
-	resp, err := client.ExecuteRequest(http.MethodGet, "/v0/storage", nil)
+	resp, err := client.ExecuteRequest(http.MethodGet, "/v0/storage?limit=100", nil)
 	if err != nil {
 		slog.Debug("Failed to execute request.", "error", err)
 		return cli.Exit("Failed to execute request.", 1)
