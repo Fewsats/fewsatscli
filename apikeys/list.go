@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"text/tabwriter"
 
 	// Added to support time.Time in APIKey struct
 	"github.com/fewsats/fewsatscli/client"
@@ -18,15 +16,6 @@ var listCommand = &cli.Command{
 	Name:   "list",
 	Usage:  "List all API keys.",
 	Action: listAPIKeys,
-}
-
-func printKeys(keys []store.APIKey) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "ID\t Key\t ExpiresAt\t Enabled")
-	for _, key := range keys {
-		fmt.Fprintf(w, "%d\t %s\t %s\t %t\n", key.ID, key.HiddenKey, key.ExpiresAt, key.Enabled)
-	}
-	w.Flush()
 }
 
 func listAPIKeys(c *cli.Context) error {
@@ -62,7 +51,12 @@ func listAPIKeys(c *cli.Context) error {
 		return cli.Exit("Failed to decode API keys.", 1)
 	}
 
-	printKeys(response.Keys)
+	jsonOutput, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return cli.Exit("Failed to marshal JSON.", 1)
+	}
+
+	fmt.Println(string(jsonOutput))
 
 	return nil
 }
