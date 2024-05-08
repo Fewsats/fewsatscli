@@ -298,7 +298,10 @@ func RequiresLogin() error {
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			return nil
 		}
-		store.DisableAPIKey(apiKey.ID)
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			store.DisableAPIKey(apiKey.ID)
+		}
 	}
 
 	return fmt.Errorf("no valid API keys found")
