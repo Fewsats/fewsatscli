@@ -22,16 +22,17 @@ const (
 
 // UploadFileRequest is the request body for the upload endpoint.
 type UploadFileRequest struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	PriceInCents uint64 `json:"price_in_usd_cents"`
-	File         []byte `json:"file"`
-	FileURL      string `json:"file_url"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	PriceInCents uint64   `json:"price_in_usd_cents"`
+	File         *os.File `json:"file"`
+	FileURL      string   `json:"file_url"`
 }
 
 // UploadFileResponse is the response body for the upload endpoint.
 type UploadFileResponse struct {
-	FileID string `json:"file_id"`
+	FileID       string `json:"file_id"`
+	PresignedURL string `json:"presigned_url"`
 }
 
 var uploadFileCommand = &cli.Command{
@@ -88,6 +89,10 @@ func uploadFile(c *cli.Context) error {
 	filePath := c.String("file-path")
 	fileURL := c.String("file-url")
 
+	if fileURL != "" {
+		return cli.Exit("file-url parameter is not implemented yet", 1)
+	}
+
 	if filePath == "" && fileURL == "" {
 		return cli.Exit("file-path or file-url is required", 1)
 	}
@@ -117,9 +122,9 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("price must be a number (ex: 10.95)", 1)
 	}
 
-	var file []byte
+	var file *os.File
 	if filePath != "" {
-		file, err = os.ReadFile(filePath)
+		file, err = os.Open(filePath)
 		if err != nil {
 			slog.Debug(
 				"Failed to read file.",
@@ -128,6 +133,7 @@ func uploadFile(c *cli.Context) error {
 
 			return cli.Exit("failed to read file", 1)
 		}
+		defer file.Close()
 	}
 
 	req := &UploadFileRequest{
@@ -190,8 +196,60 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("failed to decode response", 1)
 	}
 
+	// presignedURL is empty when we are uploading via fileURL
+	if respBody.PresignedURL != "" {
+		err = uploadFileToPresignedURL(respBody.PresignedURL, file)
+		if err != nil {
+			return cli.Exit("failed to upload file to presigned URL", 1)
+		}
+	}
+
 	fmt.Println("File uploaded successfully.")
 	fmt.Println("Download URL: ", cfg.Domain+downloadFilePath+"/"+respBody.FileID)
+
+	return nil
+}
+
+// uploadFileToPresignedURL uploads the file to the presigned URL.
+func uploadFileToPresignedURL(presignedURL string, file *os.File) error {
+	req, err := http.NewRequest(http.MethodPut, presignedURL, file)
+	if err != nil {
+		slog.Debug(
+			"Failed to create request to presigned URL.",
+			"error", err,
+		)
+		return err
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		slog.Debug(
+			"Failed to get file stats.",
+			"error", err,
+		)
+		return err
+	}
+
+	req.ContentLength = stat.Size()
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Debug(
+			"Failed to upload file to presigned URL.",
+			"error", err,
+		)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug(
+			"Upload to presigned URL failed.",
+			"status_code", resp.StatusCode,
+		)
+		return fmt.Errorf("upload to presigned URL failed with status code %d", resp.StatusCode)
+	}
 
 	return nil
 }
