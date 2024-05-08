@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"text/tabwriter"
 	"time"
 
 	"github.com/fewsats/fewsatscli/client"
@@ -30,17 +28,6 @@ var listCommand = &cli.Command{
 	Name:   "list",
 	Usage:  "List all files.",
 	Action: listFiles,
-}
-
-func printFiles(files []File) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "ID\t Name\t Updated At\t URL")
-	for _, file := range files {
-		updatedAt := file.UpdatedAt.Local().Format("2006-01-02 15:04")
-		fmt.Fprintf(w, "%s\t %s\t %s\t %s\n",
-			file.ExternalID, file.Name, updatedAt, file.StorageURL)
-	}
-	w.Flush()
 }
 
 func listFiles(c *cli.Context) error {
@@ -74,6 +61,12 @@ func listFiles(c *cli.Context) error {
 		return cli.Exit("Failed to decode files.", 1)
 	}
 
-	printFiles(response.Files)
+	jsonOutput, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return cli.Exit("Failed to marshal JSON.", 1)
+	}
+
+	fmt.Println(string(jsonOutput))
+
 	return nil
 }
