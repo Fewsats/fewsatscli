@@ -32,6 +32,7 @@ func printKeys(keys []store.APIKey) {
 func listAPIKeys(c *cli.Context) error {
 	err := client.RequiresLogin()
 	if err != nil {
+		slog.Debug("Failed to check if user is logged in.", "error", err)
 		return cli.Exit("You need to log in to run this command.", 1)
 	}
 

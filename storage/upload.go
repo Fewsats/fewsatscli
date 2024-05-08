@@ -89,6 +89,10 @@ func uploadFile(c *cli.Context) error {
 	filePath := c.String("file-path")
 	fileURL := c.String("file-url")
 
+	if fileURL != "" {
+		return cli.Exit("file-url parameter is not implemented yet", 1)
+	}
+
 	if filePath == "" && fileURL == "" {
 		return cli.Exit("file-path or file-url is required", 1)
 	}
@@ -192,6 +196,7 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("failed to decode response", 1)
 	}
 
+	// presignedURL is empty when we are uploading via fileURL
 	if respBody.PresignedURL != "" {
 		err = uploadFileToPresignedURL(respBody.PresignedURL, file)
 		if err != nil {
