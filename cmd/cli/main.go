@@ -30,26 +30,33 @@ func main() {
 		}
 	}
 
-	dbPath := filepath.Join(fewsatsDir, "fewsats.db")
-	store, err := store.NewStore(dbPath)
-	if err != nil {
-		log.Fatal("Failed to create store:", err)
-	}
-
-	err = store.InitSchema()
-	if err != nil {
-		log.Fatal("Failed to initialize database schema:", err)
-	}
-
 	app := &cli.App{
 		Name:                 "Fewsats CLI",
 		Usage:                "Interact with the Fewsats Platform.",
 		Version:              version.Version(),
 		EnableBashCompletion: true,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "profile",
+				Value: "default",
+				Usage: "Specify the configuration profile",
+			},
+		},
 		Before: func(c *cli.Context) error {
+			os.Setenv("PROFILE", c.String("profile"))
 			cfg, err := config.GetConfig()
 			if err != nil {
 				return nil
+			}
+
+			store, err := store.NewStore(cfg.DBFilePath)
+			if err != nil {
+				log.Fatal("Failed to create store:", err)
+			}
+
+			err = store.InitSchema()
+			if err != nil {
+				log.Fatal("Failed to initialize database schema:", err)
 			}
 
 			// Set slog level to debug.

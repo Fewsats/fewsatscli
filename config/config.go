@@ -2,13 +2,11 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 
-	"github.com/joho/godotenv"
+	"gopkg.in/ini.v1"
 )
 
 const (
@@ -24,19 +22,42 @@ var (
 )
 
 type Config struct {
-	APIKey    string
-	Domain    string
-	AlbyToken string
-	LogLevel  string
-	ConfigDir string
+	Domain     string
+	AlbyToken  string
+	LogLevel   string
+	ConfigDir  string
+	DBFilePath string
 }
 
-func getDefaultConfigContent() string {
-	var lines []string
-	for key, value := range defaultConfig {
-		lines = append(lines, fmt.Sprintf(`%s="%s"`, key, value))
+func getConfigSection(configFilePath, profile string) (*ini.Section, error) {
+	// Load or create the config file
+	cfg, err := ini.LoadSources(ini.LoadOptions{}, configFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File does not exist, create it
+			cfg = ini.Empty()
+		} else {
+			return nil, fmt.Errorf("failed to load config file: %w", err)
+		}
 	}
-	return strings.Join(lines, "\n")
+
+	// Check if the profile section exists
+	section, err := cfg.GetSection(profile)
+	if err != nil {
+		if section, err = cfg.NewSection(profile); err != nil {
+			return nil, fmt.Errorf("failed to create profile section: %w", err)
+		}
+		// Populate default settings for new profile
+		for key, value := range defaultConfig {
+			section.NewKey(key, value)
+		}
+		// Save the new profile section to file
+		if err = cfg.SaveTo(configFilePath); err != nil {
+			return nil, fmt.Errorf("failed to save new profile to config file: %w", err)
+		}
+	}
+
+	return section, nil
 }
 
 func GetConfig() (*Config, error) {
@@ -44,53 +65,36 @@ func GetConfig() (*Config, error) {
 		return loadedConfig, nil
 	}
 
+	profile := os.Getenv("PROFILE")
+
 	// Get the current user
 	usr, err := user.Current()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get current OS user: %w", err)
 	}
 
-	// Construct the path to the config file (~/.fewsats/config)
+	// Construct the path to
+	// * the config file (~/.fewsats/config)
+	// * the db file (~/.fewsats/{profile}.db)
 	configDir := filepath.Join(usr.HomeDir, ".fewsats")
 	configFilePath := filepath.Join(configDir, "config")
+	dbFilePath := filepath.Join(configDir, fmt.Sprintf("%s.db", profile))
 
-	// Check if the config file exists
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		slog.Debug("Config file not found. Creating default config file...\n")
-		defaultContent := getDefaultConfigContent()
-		// Create the file with default content if it does not exist
-		if err := os.WriteFile(configFilePath, []byte(defaultContent), 0644); err != nil {
-			return nil, fmt.Errorf("failed to create default config file: %w", err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to check config file: %w", err)
-	}
-
-	// Load the config file
-	err = godotenv.Load(configFilePath)
+	section, err := getConfigSection(configFilePath, profile)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load config file: %w", err)
+		return nil, fmt.Errorf("failed to get profile config: %w", err)
 	}
 
-	// Set global config from file
-	domain, exists := os.LookupEnv("DOMAIN")
-	if !exists {
-		domain = baseURL
-	}
-
-	apiKey := os.Getenv("APIKEY")
-	albyToken := os.Getenv("ALBY_TOKEN")
-	logLevel, exists := os.LookupEnv("LOG_LEVEL")
-	if !exists {
-		logLevel = "info"
-	}
+	domain := section.Key("DOMAIN").MustString(baseURL)
+	albyToken := section.Key("ALBY_TOKEN").MustString("")
+	logLevel := section.Key("LOG_LEVEL").MustString("info")
 
 	loadedConfig = &Config{
-		APIKey:    apiKey,
-		Domain:    domain,
-		AlbyToken: albyToken,
-		LogLevel:  logLevel,
-		ConfigDir: configDir,
+		Domain:     domain,
+		AlbyToken:  albyToken,
+		LogLevel:   logLevel,
+		ConfigDir:  configDir,
+		DBFilePath: dbFilePath,
 	}
 
 	return loadedConfig, nil

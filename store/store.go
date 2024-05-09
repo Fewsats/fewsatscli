@@ -1,13 +1,13 @@
 package store
 
 import (
-	"os"
-	"path/filepath"
+	"log"
 	"sync"
 	"time"
 
 	"database/sql"
 
+	"github.com/fewsats/fewsatscli/config"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -24,9 +24,12 @@ type Store struct {
 
 func GetStore() *Store {
 	once.Do(func() {
-		homeDir, _ := os.UserHomeDir()
-		dbPath := filepath.Join(homeDir, ".fewsats", "fewsats.db")
-		instance, _ = NewStore(dbPath)
+		cfg, err := config.GetConfig()
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
+
+		instance, _ = NewStore(cfg.DBFilePath)
 	})
 	return instance
 }
