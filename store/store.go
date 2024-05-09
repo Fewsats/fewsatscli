@@ -1,13 +1,13 @@
 package store
 
 import (
-	"os"
-	"path/filepath"
+	"log"
 	"sync"
 	"time"
 
 	"database/sql"
 
+	"github.com/fewsats/fewsatscli/config"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -24,9 +24,12 @@ type Store struct {
 
 func GetStore() *Store {
 	once.Do(func() {
-		homeDir, _ := os.UserHomeDir()
-		dbPath := filepath.Join(homeDir, ".fewsats", "fewsats.db")
-		instance, _ = NewStore(dbPath)
+		cfg, err := config.GetConfig()
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
+
+		instance, _ = NewStore(cfg.DBFilePath)
 	})
 	return instance
 }
@@ -47,6 +50,14 @@ func (s *Store) InitSchema() error {
 		expires_at DATETIME NOT NULL,
 		user_id INTEGER NOT NULL,
 		enabled BOOLEAN NOT NULL DEFAULT 1
+	);
+	CREATE TABLE IF NOT EXISTS credentials (
+		external_id TEXT PRIMARY KEY,
+		macaroon TEXT NOT NULL,
+		preimage TEXT NOT NULL,
+		invoice TEXT NOT NULL,
+		created_at DATETIME NOT NULL
+
 	);`
 	_, err := s.db.Exec(schema)
 	return err
@@ -83,4 +94,22 @@ func (s *Store) GetEnabledAPIKeys() ([]APIKey, error) {
 func (s *Store) DisableAPIKey(id uint64) error {
 	_, err := s.db.Exec("UPDATE api_keys SET enabled = 0 WHERE id = ?", id)
 	return err
+}
+
+func (s *Store) InsertL402Credentials(externalID, macaroon, preimage, invoice string) error {
+	createdAt := time.Now().UTC()
+	_, err := s.db.Exec(
+		"INSERT INTO credentials (external_id, macaroon, "+
+			"preimage, invoice, created_at) VALUES (?, ?, ?, ?, ?)",
+		externalID, macaroon, preimage, invoice, createdAt,
+	)
+	return err
+}
+
+func (s *Store) GetL402Credentials(externalID string) (macaroon, preimage string, err error) {
+	err = s.db.QueryRow(
+		"SELECT macaroon, preimage FROM credentials WHERE external_id = ?",
+		externalID,
+	).Scan(&macaroon, &preimage)
+	return
 }
