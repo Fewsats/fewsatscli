@@ -86,6 +86,40 @@ func (c *HttpClient) ExecuteRequest(method, path string,
 	return resp, nil
 }
 
+// getExternalID retrieves the external ID from the URL.
+func getExternalID(url string) string {
+	urlParts := strings.Split(url, "/")
+	return urlParts[len(urlParts)-1]
+
+}
+func getL402Credentials(url string) (string, string, error) {
+	externalID := getExternalID(url)
+
+	store := store.GetStore()
+	macaroon, preimage, err := store.GetL402Credentials(externalID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get L402 credentials from db: %w", err)
+	}
+
+	if macaroon == "" || preimage == "" {
+		return "", "", fmt.Errorf("no L402 credentials found")
+	}
+
+	return macaroon, preimage, nil
+}
+
+func saveL402Credentials(url string, macaroon, preimage, invoice string) error {
+	externalID := getExternalID(url)
+
+	store := store.GetStore()
+	err := store.InsertL402Credentials(externalID, macaroon, preimage, invoice)
+	if err != nil {
+		return fmt.Errorf("failed to insert credentials to db: %w", err)
+	}
+
+	return nil
+}
+
 // ExecuteL402Request executes an HTTP request with the given method, path, and body.
 // If the response status code is 402, it will show the user the price of the request
 // and ask if they would like to proceed.
@@ -99,6 +133,16 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+
+	// check if we already paid the invoice and it's in the DB
+	macaroon, preimage, err := getL402Credentials(url)
+	if err == nil {
+		slog.Debug("Using existing L402 credentials",
+			"macaroon", macaroon,
+			"preimage", preimage,
+		)
+		req.Header.Set("Authorization", fmt.Sprintf("L402 %s:%s", macaroon, preimage))
 	}
 
 	if body != nil {
@@ -143,7 +187,7 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("user chose not to continue")
 	}
 
-	preimage, err := PayInvoice(c.albyToken, invoice)
+	preimage, err = PayInvoice(c.albyToken, invoice)
 	if err != nil {
 		return nil, fmt.Errorf("unable to pay invoice: %w", err)
 	}
@@ -154,6 +198,11 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		"invoice", invoice,
 		"preimage", preimage,
 	)
+
+	err = saveL402Credentials(url, macaroon, preimage, invoice)
+	if err != nil {
+		return nil, fmt.Errorf("unable to save L402 credentials: %w", err)
+	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("L402 %s:%s", macaroon, preimage))
 	resp, err = c.client.Do(req)
