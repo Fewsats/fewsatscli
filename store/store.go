@@ -1,13 +1,17 @@
 package store
 
 import (
+	"errors"
+	"fmt"
 	"log"
+	"log/slog"
+	"net/http"
 	"sync"
-	"time"
-
-	"database/sql"
 
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/source/httpfs"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -22,6 +26,12 @@ type Store struct {
 	db *sqlx.DB
 }
 
+var (
+	// ErrNoWalletFound is returned when no wallet is found in the database.
+	ErrNoWalletFound = errors.New("no wallet found")
+)
+
+// GetStore returns the singleton instance of the store.
 func GetStore() *Store {
 	once.Do(func() {
 		cfg, err := config.GetConfig()
@@ -31,85 +41,46 @@ func GetStore() *Store {
 
 		instance, _ = NewStore(cfg.DBFilePath)
 	})
+
 	return instance
 }
 
+// NewStore creates a new store with the given database path.
 func NewStore(dbPath string) (*Store, error) {
 	db, err := sqlx.Connect("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Store{db: db}, nil
 }
 
-func (s *Store) InitSchema() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS api_keys (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		key TEXT NOT NULL,
-		expires_at DATETIME NOT NULL,
-		user_id INTEGER NOT NULL,
-		enabled BOOLEAN NOT NULL DEFAULT 1
-	);
-	CREATE TABLE IF NOT EXISTS credentials (
-		external_id TEXT PRIMARY KEY,
-		macaroon TEXT NOT NULL,
-		preimage TEXT NOT NULL,
-		invoice TEXT NOT NULL,
-		created_at DATETIME NOT NULL
-
-	);`
-	_, err := s.db.Exec(schema)
-	return err
-}
-
-func (s *Store) InsertAPIKey(key string, expiresAt time.Time, userID int64) (int64, error) {
-	result, err := s.db.Exec("INSERT INTO api_keys (key, expires_at, user_id, enabled) VALUES (?, ?, ?, 1)", key, expiresAt, userID)
+// RunMigrations applies the database migrations to the latest version.
+func (s *Store) RunMigrations() error {
+	driver, err := sqlite3.WithInstance(s.db.DB, &sqlite3.Config{})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return result.LastInsertId()
-}
 
-func (s *Store) GetAPIKey() (string, error) {
-	var apiKey string
-	err := s.db.Get(&apiKey, "SELECT key FROM api_keys WHERE expires_at > CURRENT_TIMESTAMP AND enabled = 1 LIMIT 1")
+	src, err := httpfs.New(http.FS(sqlSchemas), "migrations")
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil // Return an empty string and no error if no rows are found
+		return err
+	}
+
+	m, err := migrate.NewWithInstance("httpfs", src, "sqlite3", driver)
+	if err != nil {
+		return err
+	}
+
+	err = m.Up()
+	if err != nil {
+		if err == migrate.ErrNoChange {
+			slog.Info("No migrations to run")
+			return nil
 		}
-		return "", err
+
+		return fmt.Errorf("unable to run migrations: %w", err)
 	}
-	return apiKey, nil
-}
 
-// GetEnabledAPIKeys retrieves all enabled API keys that have not expired.
-func (s *Store) GetEnabledAPIKeys() ([]APIKey, error) {
-	var apiKeys []APIKey
-	err := s.db.Select(&apiKeys, "SELECT * FROM api_keys WHERE expires_at > CURRENT_TIMESTAMP AND enabled = 1")
-	return apiKeys, err
-}
-
-// DisableAPIKey sets the enabled field of an API key to false.
-func (s *Store) DisableAPIKey(id uint64) error {
-	_, err := s.db.Exec("UPDATE api_keys SET enabled = 0 WHERE id = ?", id)
-	return err
-}
-
-func (s *Store) InsertL402Credentials(externalID, macaroon, preimage, invoice string) error {
-	createdAt := time.Now().UTC()
-	_, err := s.db.Exec(
-		"INSERT INTO credentials (external_id, macaroon, "+
-			"preimage, invoice, created_at) VALUES (?, ?, ?, ?, ?)",
-		externalID, macaroon, preimage, invoice, createdAt,
-	)
-	return err
-}
-
-func (s *Store) GetL402Credentials(externalID string) (macaroon, preimage string, err error) {
-	err = s.db.QueryRow(
-		"SELECT macaroon, preimage FROM credentials WHERE external_id = ?",
-		externalID,
-	).Scan(&macaroon, &preimage)
-	return
+	return nil
 }
