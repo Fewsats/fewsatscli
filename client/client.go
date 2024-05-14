@@ -180,8 +180,12 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 	}
 
 	if c.wallet == nil {
-		return nil, fmt.Errorf("unable to access L402 paywalled content: run " +
-			"`fewsatscli wallet connect` to connect your wallet")
+		fmt.Println()
+		fmt.Println("unable to access L402 paywalled content: no wallet configured")
+		fmt.Println("run `fewsatscli wallet connect` to connect your wallet")
+		fmt.Println()
+
+		return nil, fmt.Errorf("unable to access L402 paywalled content")
 	}
 
 	credentials, err = store.ParseL402Challenge(externalID, resp)
