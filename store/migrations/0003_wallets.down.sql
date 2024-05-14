@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS wallet_tokens;
+DROP TABLE IF EXISTS wallets;

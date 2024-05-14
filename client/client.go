@@ -44,37 +44,14 @@ func NewHTTPClient() (*HttpClient, error) {
 		return nil, fmt.Errorf("unable to get valid API key: %w", err)
 	}
 
-	var preimageProvider wallets.PreimageProvider
-
-	walletType, err := store.GetWalletType()
+	wallet, err := wallets.GetDefaultWallet(slog.Default(), store)
 	if err != nil && !errors.Is(err, storePkg.ErrNoWalletFound) {
 		return nil, fmt.Errorf("unable to get wallet type: %w", err)
 	}
 
-	switch walletType {
-	case "alby":
-		token, err := store.GetWalletToken()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get wallet token: %w", err)
-		}
-
-		preimageProvider = NewAlbyClient(token)
-
-	case "zbd":
-		token, err := store.GetWalletToken()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get wallet token: %w", err)
-		}
-
-		preimageProvider = NewZBDClient(token)
-
-	default:
-		return nil, fmt.Errorf("unsupported wallet type: %s", walletType)
-	}
-
 	return &HttpClient{
 		client: &http.Client{},
-		wallet: preimageProvider,
+		wallet: wallet,
 
 		apiKey: apiKey,
 		domain: cfg.Domain,
