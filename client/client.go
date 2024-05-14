@@ -189,12 +189,11 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 	}
 
 	credentials, err = store.ParseL402Challenge(externalID, resp)
-	if err == nil {
-		return nil, fmt.Errorf("unable to parse L402 challenge header: %w",
-			err)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse L402 challenge header: %w", err)
 	}
 
-	invoicePrice, err := DecodePrice(credentials.Macaroon)
+	invoicePrice, err := DecodePrice(credentials.Invoice)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode invoice price: %w", err)
 	}

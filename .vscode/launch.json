@@ -1,0 +1,91 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Upload",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "storage", "upload",
+                "--name", "Steps Towards Artificial Intelligence",
+                "--price", "0.05",
+                "--file-path", "/Users/pengren/tmp/Minsky61.pdf",
+                "--description", "Steps Towards Artificial Intelligence paper by Marvin Minsky 1961"
+            ]
+        },
+        {
+            "name": "Download",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "--verbose",
+                "storage", "download",
+                "ef6e5fec-467a-46a6-951f-a1167cb69f9d"
+
+            ],
+        },
+        {
+            "name": "Create account",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "account", "signup",
+            ],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "Login",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "--profile", "staging",
+                "account", "login",
+            ],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "List API keys",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "--profile", "staging",
+                "apikeys", "list",
+            ],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "Create API key",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "apikeys", "new",
+            ],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "Connect Wallet",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "wallet", "connect",
+                "--type", "alby",
+                "--token", "this"
+            ],
+        }
+    ]
+}
+}

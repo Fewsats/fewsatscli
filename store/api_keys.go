@@ -23,7 +23,7 @@ func (s *Store) InsertAPIKey(key string, expiresAt time.Time,
 		INSERT INTO api_keys (
 			key, expires_at, user_id, enabled
 		) VALUES (
-			?, ?, ?, 1,
+			?, ?, ?, 1
 		);
 	`
 

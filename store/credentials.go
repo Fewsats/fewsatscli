@@ -14,16 +14,16 @@ type L402Credentials struct {
 	ExternalID string
 
 	// Macaroon is the base64 encoded macaroon credentials.
-	Macaroon string
+	Macaroon string `db:"macaroon"`
 
 	// Preimage is the preimage linked to this L402 challenge.
-	Preimage string
+	Preimage string `db:"preimage"`
 
 	// Invoice is the LN invoice linked to this L402 challenge.
-	Invoice string
+	Invoice string `db:"invoice"`
 
 	// CreatedAt is the time the L402 challenge stored in the database.
-	CreatedAt time.Time
+	CreatedAt time.Time `db:"created_at"`
 }
 
 // L402Header returns the L402 header used to authenticated a request for the
@@ -100,7 +100,7 @@ func (s *Store) GetL402Credentials(externalID string) (*L402Credentials,
 		LIMIT 1;
 	`
 
-	var credentials *L402Credentials
+	var credentials L402Credentials
 	err := s.db.Get(&credentials, stmt, externalID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L402 credentials for %s: %w",
@@ -112,5 +112,5 @@ func (s *Store) GetL402Credentials(externalID string) (*L402Credentials,
 			"macaroon/preimage)", externalID)
 	}
 
-	return credentials, nil
+	return &credentials, nil
 }

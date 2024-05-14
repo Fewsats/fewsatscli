@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -10,7 +11,7 @@ import (
 // invoices.
 type Wallet struct {
 	ID        uint64    `db:"id"`
-	Type      string    `db:"type"`
+	Type      string    `db:"wallet_type"`
 	CreatedAt time.Time `db:"created_at"`
 }
 
@@ -44,15 +45,22 @@ func (s *Store) GetDefaultWallet() (uint64, error) {
 // SetDefaultWallet sets the default wallet for the user.
 func (s *Store) SetDefaultWallet(walletID uint64) error {
 	stmt := `
-		INSERT INTO default_wallet (wallet_id)
-		VALUES ($1)
-		ON CONFLICT (wallet_id) DO UPDATE
-		SET wallet_id = EXCLUDED.wallet_id;
+		DELETE FROM default_wallet;
 	`
 
-	_, err := s.db.Exec(stmt, walletID)
+	_, err := s.db.Exec(stmt)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete default wallet: %w", err)
+	}
+
+	stmt = `
+		INSERT INTO default_wallet (wallet_id)
+		VALUES ($1);
+	`
+
+	_, err = s.db.Exec(stmt, walletID)
+	if err != nil {
+		return fmt.Errorf("failed to set default wallet: %w", err)
 	}
 
 	return nil
@@ -61,7 +69,7 @@ func (s *Store) SetDefaultWallet(walletID uint64) error {
 // InsertWallet inserts a new wallet in the database.
 func (s *Store) InsertWallet(walletType string) (uint64, error) {
 	stmt := `
-		INSERT INTO wallets (type, created_at)
+		INSERT INTO wallets (wallet_type, created_at)
 		VALUES ($1, $2)
 		RETURNING id;
 	`
@@ -83,20 +91,22 @@ func (s *Store) InsertWallet(walletType string) (uint64, error) {
 // GetWallet returns the wallet stored in the database.
 func (s *Store) GetWallet(id uint64) (*Wallet, error) {
 	stmt := `
-		SELECT id, type, created_at
+		SELECT id, wallet_type, created_at
 		FROM wallets
-		WHERE id = $1;
+		WHERE id = ?;
 	`
 
-	var wallet *Wallet
+	var wallet Wallet
 	err := s.db.Get(&wallet, stmt, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWalletFound
 		}
+
+		return nil, err
 	}
 
-	return wallet, nil
+	return &wallet, nil
 }
 
 // DeleteWallet deletes the wallet with the given ID from the database.
@@ -135,7 +145,7 @@ func (s *Store) GetWalletToken(id uint64) (string, error) {
 	stmt := `
 		SELECT token
 		FROM token_based_preimage_provider
-		WHERE wallet_id = $1;
+		WHERE wallet_id = ?;
 	`
 
 	var token string

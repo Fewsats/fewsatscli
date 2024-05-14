@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/urfave/cli/v2"
@@ -19,6 +20,12 @@ var searchCommand = &cli.Command{
 	Name:   "search",
 	Usage:  "Search files.",
 	Action: searchFiles,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "Search query to filter files by name",
+		},
+	},
 }
 
 func searchFiles(c *cli.Context) error {
@@ -28,7 +35,15 @@ func searchFiles(c *cli.Context) error {
 		return cli.Exit("Failed to create HTTP client.", 1)
 	}
 
-	resp, err := client.ExecuteRequest(http.MethodGet, searchFilesPath, nil)
+	requestURL := fmt.Sprintf("%s?limit=100", searchFilesPath)
+
+	// Retrieve the query parameter from the command line, if provided
+	nameQuery := c.String("name")
+	if nameQuery != "" {
+		requestURL += fmt.Sprintf("&name=%s", url.QueryEscape(nameQuery))
+	}
+
+	resp, err := client.ExecuteRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		slog.Debug("Failed to execute request.", "error", err)
 		return cli.Exit("Failed to execute request.", 1)
