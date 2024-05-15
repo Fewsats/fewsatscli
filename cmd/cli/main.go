@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -41,6 +42,10 @@ func main() {
 				Value: "default",
 				Usage: "Specify the configuration profile",
 			},
+			&cli.BoolFlag{
+				Name:  "verbose",
+				Usage: "Enable verbose logging",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			os.Setenv("PROFILE", c.String("profile"))
@@ -49,13 +54,9 @@ func main() {
 				return nil
 			}
 
-			store, err := store.NewStore(cfg.DBFilePath)
-			if err != nil {
-				log.Fatal("Failed to create store:", err)
-			}
-
-			if err = store.RunMigrations(); err != nil {
-				log.Fatal("Failed to run migrations:", err)
+			if !c.Bool("verbose") {
+				// Discard all logs if verbose flag is not set.
+				log.SetOutput(io.Discard)
 			}
 
 			// Set slog level to debug.
@@ -68,6 +69,17 @@ func main() {
 				slog.SetLogLoggerLevel(slog.LevelWarn)
 			case "error":
 				slog.SetLogLoggerLevel(slog.LevelError)
+			}
+
+			// Setup the store.
+			store, err := store.NewStore(cfg.DBFilePath)
+			if err != nil {
+				log.Fatal("Failed to create store:", err)
+			}
+
+			// Run the migrations if needed.
+			if err = store.RunMigrations(); err != nil {
+				log.Fatal("Failed to run migrations:", err)
 			}
 
 			return nil
