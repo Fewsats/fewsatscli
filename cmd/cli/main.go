@@ -14,6 +14,7 @@ import (
 	"github.com/fewsats/fewsatscli/storage"
 	"github.com/fewsats/fewsatscli/store"
 	"github.com/fewsats/fewsatscli/version"
+	"github.com/fewsats/fewsatscli/wallets"
 	"github.com/urfave/cli/v2"
 )
 
@@ -82,12 +83,16 @@ func main() {
 				log.Fatal("Failed to run migrations:", err)
 			}
 
+			// Save the store in the App.Metadata field.
+			c.App.Metadata["store"] = store
+
 			return nil
 		},
 		Commands: []*cli.Command{
 			account.Command(),
 			apikeys.Command(),
 			storage.Command(),
+			wallets.Command(),
 		},
 	}
 
