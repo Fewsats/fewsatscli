@@ -1,13 +1,19 @@
 package store
 
 import (
+	"fmt"
 	"log"
+	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
 	"database/sql"
 
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/source/httpfs"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -42,25 +48,34 @@ func NewStore(dbPath string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-func (s *Store) InitSchema() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS api_keys (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		key TEXT NOT NULL,
-		expires_at DATETIME NOT NULL,
-		user_id INTEGER NOT NULL,
-		enabled BOOLEAN NOT NULL DEFAULT 1
-	);
-	CREATE TABLE IF NOT EXISTS credentials (
-		external_id TEXT PRIMARY KEY,
-		macaroon TEXT NOT NULL,
-		preimage TEXT NOT NULL,
-		invoice TEXT NOT NULL,
-		created_at DATETIME NOT NULL
+// RunMigrations applies the database migrations to the latest version.
+func (s *Store) RunMigrations() error {
+	driver, err := sqlite3.WithInstance(s.db.DB, &sqlite3.Config{})
+	if err != nil {
+		return err
+	}
 
-	);`
-	_, err := s.db.Exec(schema)
-	return err
+	src, err := httpfs.New(http.FS(sqlSchemas), "migrations")
+	if err != nil {
+		return err
+	}
+
+	m, err := migrate.NewWithInstance("httpfs", src, "sqlite3", driver)
+	if err != nil {
+		return err
+	}
+
+	err = m.Up()
+	if err != nil {
+		if err == migrate.ErrNoChange {
+			slog.Debug("No migrations to run")
+			return nil
+		}
+
+		return fmt.Errorf("unable to run migrations: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Store) InsertAPIKey(key string, expiresAt time.Time, userID int64) (int64, error) {

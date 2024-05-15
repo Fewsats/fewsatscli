@@ -54,9 +54,8 @@ func main() {
 				log.Fatal("Failed to create store:", err)
 			}
 
-			err = store.InitSchema()
-			if err != nil {
-				log.Fatal("Failed to initialize database schema:", err)
+			if err = store.RunMigrations(); err != nil {
+				log.Fatal("Failed to run migrations:", err)
 			}
 
 			// Set slog level to debug.
