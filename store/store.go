@@ -110,21 +110,3 @@ func (s *Store) DisableAPIKey(id uint64) error {
 	_, err := s.db.Exec("UPDATE api_keys SET enabled = 0 WHERE id = ?", id)
 	return err
 }
-
-func (s *Store) InsertL402Credentials(externalID, macaroon, preimage, invoice string) error {
-	createdAt := time.Now().UTC()
-	_, err := s.db.Exec(
-		"INSERT INTO credentials (external_id, macaroon, "+
-			"preimage, invoice, created_at) VALUES (?, ?, ?, ?, ?)",
-		externalID, macaroon, preimage, invoice, createdAt,
-	)
-	return err
-}
-
-func (s *Store) GetL402Credentials(externalID string) (macaroon, preimage string, err error) {
-	err = s.db.QueryRow(
-		"SELECT macaroon, preimage FROM credentials WHERE external_id = ?",
-		externalID,
-	).Scan(&macaroon, &preimage)
-	return
-}

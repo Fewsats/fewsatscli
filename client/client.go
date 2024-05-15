@@ -12,6 +12,7 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/fewsats/fewsatscli/credentials"
 	"github.com/fewsats/fewsatscli/store"
 	"github.com/lightningnetwork/lnd/zpay32"
 )
@@ -92,27 +93,24 @@ func getExternalID(url string) string {
 	return urlParts[len(urlParts)-1]
 
 }
-func getL402Credentials(url string) (string, string, error) {
-	externalID := getExternalID(url)
+
+// getL402Credentials retrieves the L402 credentials from the database.
+func getL402Credentials(externalID string) (*credentials.L402Credentials,
+	error) {
 
 	store := store.GetStore()
-	macaroon, preimage, err := store.GetL402Credentials(externalID)
+	creds, err := store.GetL402Credentials(externalID)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get L402 credentials from db: %w", err)
+		return nil, fmt.Errorf("failed to get L402 credentials from db: %w",
+			err)
 	}
 
-	if macaroon == "" || preimage == "" {
-		return "", "", fmt.Errorf("no L402 credentials found")
-	}
-
-	return macaroon, preimage, nil
+	return creds, nil
 }
 
-func saveL402Credentials(url string, macaroon, preimage, invoice string) error {
-	externalID := getExternalID(url)
-
+func saveL402Credentials(creds *credentials.L402Credentials) error {
 	store := store.GetStore()
-	err := store.InsertL402Credentials(externalID, macaroon, preimage, invoice)
+	err := store.InsertL402Credentials(creds)
 	if err != nil {
 		return fmt.Errorf("failed to insert credentials to db: %w", err)
 	}
@@ -136,13 +134,22 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 	}
 
 	// check if we already paid the invoice and it's in the DB
-	macaroon, preimage, err := getL402Credentials(url)
+	externalID := getExternalID(url)
+	creds, err := getL402Credentials(externalID)
 	if err == nil {
-		slog.Debug("Using existing L402 credentials",
-			"macaroon", macaroon,
-			"preimage", preimage,
+		slog.Debug(
+			"Using existing L402 credentials",
+			"macaroon", creds.Macaroon,
+			"preimage", creds.Preimage,
 		)
-		req.Header.Set("Authorization", fmt.Sprintf("L402 %s:%s", macaroon, preimage))
+
+		header, err := creds.AuthenticationHeader()
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate L402 auth header: %w",
+				err)
+		}
+
+		req.Header.Set("Authorization", header)
 	}
 
 	if body != nil {
@@ -187,10 +194,12 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("user chose not to continue")
 	}
 
-	preimage, err = PayInvoice(c.albyToken, invoice)
+	preimage, err := PayInvoice(c.albyToken, invoice)
 	if err != nil {
 		return nil, fmt.Errorf("unable to pay invoice: %w", err)
 	}
+
+	creds.Preimage = preimage
 
 	slog.Debug(
 		"Paid invoice",
@@ -199,7 +208,7 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		"preimage", preimage,
 	)
 
-	err = saveL402Credentials(url, macaroon, preimage, invoice)
+	err = saveL402Credentials(creds)
 	if err != nil {
 		return nil, fmt.Errorf("unable to save L402 credentials: %w", err)
 	}
