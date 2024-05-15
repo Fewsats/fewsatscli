@@ -1,6 +1,8 @@
 package store
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -45,17 +47,21 @@ func (s *Store) GetL402Credentials(
 		LIMIT 1;
 	`
 
-	var credentials credentials.L402Credentials
-	err := s.db.Get(&credentials, stmt, externalID)
-	if err != nil {
+	var creds credentials.L402Credentials
+	err := s.db.Get(&creds, stmt, externalID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, credentials.ErrNoCredentialsFound
+
+	case err != nil:
 		return nil, fmt.Errorf("failed to get L402 credentials for %s: %w",
 			externalID, err)
 	}
 
-	if credentials.Macaroon == "" || credentials.Preimage == "" {
+	if creds.Macaroon == "" || creds.Preimage == "" {
 		return nil, fmt.Errorf("invalid L402 credentials for %s (empty "+
 			"macaroon/preimage)", externalID)
 	}
 
-	return &credentials, nil
+	return &creds, nil
 }

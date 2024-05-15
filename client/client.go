@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,12 +13,19 @@ import (
 	"github.com/fewsats/fewsatscli/config"
 	"github.com/fewsats/fewsatscli/credentials"
 	"github.com/fewsats/fewsatscli/store"
+	"github.com/fewsats/fewsatscli/wallets"
 	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 // HttpClient is an HTTP client for interacting with the Fewsats API.
 type HttpClient struct {
-	client        *http.Client
+	// client is the HTTP client used to make requests.
+	client *http.Client
+
+	// wallet is the interface provider used to get the preimage of an invoice.
+	wallet wallets.PreimageProvider
+
+	// apiKey is the API key used for authentication in our platform.
 	apiKey        string
 	domain        string
 	albyToken     string
@@ -39,8 +45,17 @@ func NewHTTPClient() (*HttpClient, error) {
 		return nil, fmt.Errorf("unable to get valid API key: %w", err)
 	}
 
+	wallet, err := wallets.GetDefaultWallet(store)
+	switch {
+	case errors.Is(err, wallets.ErrNoWalletFound):
+		// No wallet found, continue without wallet.
+	case err != nil:
+		return nil, fmt.Errorf("unable to get default wallet: %w", err)
+	}
+
 	return &HttpClient{
 		client:    &http.Client{},
+		wallet:    wallet,
 		apiKey:    apiKey,
 		domain:    cfg.Domain,
 		albyToken: cfg.AlbyToken,
@@ -136,7 +151,13 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 	// check if we already paid the invoice and it's in the DB
 	externalID := getExternalID(url)
 	creds, err := getL402Credentials(externalID)
-	if err == nil {
+
+	switch {
+	case errors.Is(err, credentials.ErrNoCredentialsFound):
+		// No credentials found, continue without credentials.
+	case err != nil:
+		return nil, fmt.Errorf("unable to get L402 credentials: %w", err)
+	default:
 		slog.Debug(
 			"Using existing L402 credentials",
 			"macaroon", creds.Macaroon,
@@ -169,12 +190,22 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return resp, nil
 	}
 
-	macaroon, invoice, err := ParseL402Challenge(resp)
+	// Make sure we have a valid wallet to pay the invoice.
+	if c.wallet == nil {
+		fmt.Println()
+		fmt.Println("unable to access L402 paywalled content: no wallet configured")
+		fmt.Println("run `fewsatscli wallet connect` to connect your wallet")
+		fmt.Println()
+
+		return nil, fmt.Errorf("unable to access L402 paywalled content")
+	}
+
+	creds, err = credentials.ParseL402Challenge(externalID, resp)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse L402 challenge: %w", err)
 	}
 
-	invoicePrice, err := DecodePrice(invoice)
+	invoicePrice, err := DecodePrice(creds.Invoice)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode invoice price: %w", err)
 	}
@@ -194,7 +225,7 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("user chose not to continue")
 	}
 
-	preimage, err := PayInvoice(c.albyToken, invoice)
+	preimage, err := c.wallet.GetPreimage(creds.Invoice)
 	if err != nil {
 		return nil, fmt.Errorf("unable to pay invoice: %w", err)
 	}
@@ -203,9 +234,9 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 
 	slog.Debug(
 		"Paid invoice",
-		"macaroon", macaroon,
-		"invoice", invoice,
-		"preimage", preimage,
+		"macaroon", creds.Macaroon,
+		"invoice", creds.Invoice,
+		"preimage", creds.Preimage,
 	)
 
 	err = saveL402Credentials(creds)
@@ -213,100 +244,18 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("unable to save L402 credentials: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("L402 %s:%s", macaroon, preimage))
+	authHeader, err := creds.AuthenticationHeader()
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate L402 auth header: %w", err)
+	}
+
+	req.Header.Set("Authorization", authHeader)
 	resp, err = c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to execute request: %w", err)
 	}
 
 	return resp, nil
-}
-
-// ParseL402Challenge parses an L402 challenge from an HTTP response.
-func ParseL402Challenge(resp *http.Response) (string, string, error) {
-	challenge := resp.Header.Get("WWW-Authenticate")
-	if challenge == "" {
-		return "", "", fmt.Errorf("no L402 challenge found")
-	}
-
-	parts := strings.Split(challenge, " ")
-
-	var macaroon, invoice string
-	for _, part := range parts {
-		if strings.HasPrefix(part, "macaroon=") {
-			macaroon = strings.TrimPrefix(part, "macaroon=")
-		} else if strings.HasPrefix(part, "invoice=") {
-			invoice = strings.TrimPrefix(part, "invoice=")
-		}
-	}
-
-	if macaroon == "" || invoice == "" {
-		return "", "", fmt.Errorf("macaroon or invoice not found in challenge")
-	}
-
-	return macaroon, invoice, nil
-}
-
-// PaymentResponse represents a payment response.
-type PaymentResponse struct {
-	Amount          int    `json:"amount"`
-	Description     string `json:"description"`
-	Destination     string `json:"destination"`
-	Fee             int    `json:"fee"`
-	PaymentHash     string `json:"payment_hash"`
-	PaymentPreimage string `json:"payment_preimage"`
-	PaymentRequest  string `json:"payment_request"`
-}
-
-// PayInvoice pays a lightning invoice.
-func PayInvoice(accessToken, invoice string) (string, error) {
-	url := "https://api.getalby.com/payments/bolt11"
-
-	// Create the request body
-	body := map[string]interface{}{
-		"invoice": invoice,
-	}
-	reqBodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return "", fmt.Errorf("unable to encode request body: %w", err)
-	}
-
-	// Create the request
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
-	if err != nil {
-		return "", fmt.Errorf("unable to create request: %w", err)
-	}
-
-	// Set the Authorization header
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("unable to send request: %w", err)
-	}
-	// Parse the response body
-	respBodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("unable to read response body: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	// Check the response status code
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var paymentResponse PaymentResponse
-	err = json.Unmarshal(respBodyBytes, &paymentResponse)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse response body: %w", err)
-	}
-
-	return paymentResponse.PaymentPreimage, nil
 }
 
 // DecodePrice decodes a price from a ln payment request.

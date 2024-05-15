@@ -11,6 +11,11 @@ func TestStoreCredentials(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t)
 
+	// The proper error is returned when the challenge is not found.
+	_, err := store.GetL402Credentials("non-existent-uuid")
+	require.Error(t, err)
+	require.ErrorIs(t, err, credentials.ErrNoCredentialsFound)
+
 	challenge := &credentials.L402Credentials{
 		ExternalID: "externalID",
 		Macaroon:   "Macaroon",
@@ -19,7 +24,7 @@ func TestStoreCredentials(t *testing.T) {
 	}
 
 	// Store the credentials.
-	err := store.InsertL402Credentials(challenge)
+	err = store.InsertL402Credentials(challenge)
 	require.NoError(t, err)
 
 	// Retrieve the credentials.

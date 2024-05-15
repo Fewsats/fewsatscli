@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+var (
+	// ErrNoCredentialsFound is the error returned when no L402 credentials are
+	// found in the database.
+	ErrNoCredentialsFound = fmt.Errorf("no L402 credentials found")
+)
+
 // L402Credentials is the struct that holds the L402 credentials of an L402
 // challenge.
 type L402Credentials struct {
@@ -79,4 +85,26 @@ func parseL402Challenge(challenge string) (string, string, error) {
 	}
 
 	return macaroon, invoice, nil
+}
+
+// GetL402Credentials retrieves the L402 credentials from the database.
+func GetL402Credentials(store Store, externalID string) (*L402Credentials,
+	error) {
+
+	creds, err := store.GetL402Credentials(externalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L402 credentials from db: %w",
+			err)
+	}
+
+	return creds, nil
+}
+
+func SaveL402Credentials(store Store, creds *L402Credentials) error {
+	err := store.InsertL402Credentials(creds)
+	if err != nil {
+		return fmt.Errorf("failed to insert credentials to db: %w", err)
+	}
+
+	return nil
 }
