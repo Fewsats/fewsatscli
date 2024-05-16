@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/fewsats/fewsatscli/storage"
 	"github.com/fewsats/fewsatscli/store"
 	"github.com/fewsats/fewsatscli/version"
+	"github.com/fewsats/fewsatscli/wallets"
 	"github.com/urfave/cli/v2"
 )
 
@@ -41,6 +43,10 @@ func main() {
 				Value: "default",
 				Usage: "Specify the configuration profile",
 			},
+			&cli.BoolFlag{
+				Name:  "verbose",
+				Usage: "Enable verbose logging",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			os.Setenv("PROFILE", c.String("profile"))
@@ -49,14 +55,9 @@ func main() {
 				return nil
 			}
 
-			store, err := store.NewStore(cfg.DBFilePath)
-			if err != nil {
-				log.Fatal("Failed to create store:", err)
-			}
-
-			err = store.InitSchema()
-			if err != nil {
-				log.Fatal("Failed to initialize database schema:", err)
+			if !c.Bool("verbose") {
+				// Discard all logs if verbose flag is not set.
+				log.SetOutput(io.Discard)
 			}
 
 			// Set slog level to debug.
@@ -71,12 +72,27 @@ func main() {
 				slog.SetLogLoggerLevel(slog.LevelError)
 			}
 
+			// Setup the store.
+			store, err := store.NewStore(cfg.DBFilePath)
+			if err != nil {
+				log.Fatal("Failed to create store:", err)
+			}
+
+			// Run the migrations if needed.
+			if err = store.RunMigrations(); err != nil {
+				log.Fatal("Failed to run migrations:", err)
+			}
+
+			// Save the store in the App.Metadata field.
+			c.App.Metadata["store"] = store
+
 			return nil
 		},
 		Commands: []*cli.Command{
 			account.Command(),
 			apikeys.Command(),
 			storage.Command(),
+			wallets.Command(),
 		},
 	}
 

@@ -4,9 +4,11 @@ go 1.21.4
 
 require (
 	github.com/btcsuite/btcd v0.23.5-0.20230905170901-80f5a0ffdf36
+	github.com/golang-migrate/migrate/v4 v4.16.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lightningnetwork/lnd v0.17.3-beta
 	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/term v0.19.0
 	gopkg.in/ini.v1 v1.67.0
@@ -33,6 +35,8 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/decred/dcrd/lru v1.0.0 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/kkdai/bstream v1.0.0 // indirect
 	github.com/lightninglabs/gozmq v0.0.0-20191113021534-d20a764486bf // indirect
 	github.com/lightninglabs/neutrino v0.16.0 // indirect
@@ -44,10 +48,11 @@ require (
 	github.com/lightningnetwork/lnd/tor v1.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
@@ -55,4 +60,5 @@ require (
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
