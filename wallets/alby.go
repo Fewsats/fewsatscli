@@ -12,21 +12,6 @@ const (
 	albyURL = "https://api.getalby.com"
 )
 
-// ConnectAlbyWallet connects a new Alby wallet with the given API key.
-func ConnectAlbyWallet(store Store, apiKey string) (uint64, error) {
-	id, err := store.InsertWallet(WalletTypeAlby)
-	if err != nil {
-		return 0, fmt.Errorf("unable to insert wallet: %w", err)
-	}
-
-	err = store.InsertWalletToken(id, apiKey)
-	if err != nil {
-		return 0, fmt.Errorf("unable to insert wallet token: %w", err)
-	}
-
-	return id, nil
-}
-
 // DeleteAlbyWallet deletes the Alby wallet with the given ID.
 func DeleteAlbyWallet(store Store, id uint64) error {
 	err := store.DeleteWalletToken(id)
