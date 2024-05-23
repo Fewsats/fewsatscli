@@ -102,6 +102,44 @@ func (c *HttpClient) ExecuteRequest(method, path string,
 	return resp, nil
 }
 
+func (c *HttpClient) ExecuteMultipartRequest(method, path string,
+	body []byte, contentType string) (*http.Response, error) {
+
+	url := fmt.Sprintf("%s%s", c.domain, path)
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", contentType)
+
+	// do not require auth for signup / login
+	requireAuth := !strings.Contains(path, "/signup") &&
+		!strings.Contains(path, "/login")
+
+	switch {
+	case c.apiKey != "":
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	case c.sessionCookie != nil:
+		req.AddCookie(c.sessionCookie)
+	case requireAuth:
+		// this should not happen, because we use RequiresLogin() to check
+		// if the user is logged in beforehand
+		return nil, fmt.Errorf("you need to log in to run this command")
+	}
+
+	if body != nil {
+		req.Body = io.NopCloser(bytes.NewReader(body))
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to execute request: %w", err)
+	}
+
+	return resp, nil
+}
+
 // getExternalID retrieves the external ID from the URL.
 func getExternalID(url string) string {
 	urlParts := strings.Split(url, "/")
