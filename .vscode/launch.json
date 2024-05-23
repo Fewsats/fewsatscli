@@ -11,7 +11,7 @@
                 "storage", "upload",
                 "--name", "Steps Towards Artificial Intelligence",
                 "--price", "0.05",
-                "--file-path", "/Users/pengren/tmp/Minsky61.pdf",
+                "--file-path", "${workspaceFolder}/minsky.pdf",
                 "--description", "Steps Towards Artificial Intelligence paper by Marvin Minsky 1961"
             ]
         },

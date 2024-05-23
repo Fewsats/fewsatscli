@@ -1,10 +1,14 @@
 package storage
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,6 +66,10 @@ var uploadFileCommand = &cli.Command{
 			Name:  "file-url",
 			Usage: "The URL where the file is stored.",
 		},
+		&cli.StringFlag{
+			Name:  "cover-image",
+			Usage: "The file path of the cover image to upload.",
+		},
 	},
 	Action: uploadFile,
 }
@@ -88,6 +96,7 @@ func uploadFile(c *cli.Context) error {
 	priceStr := c.String("price")
 	filePath := c.String("file-path")
 	fileURL := c.String("file-url")
+	coverImagePath := c.String("cover-image")
 
 	if fileURL != "" {
 		return cli.Exit("file-url parameter is not implemented yet", 1)
@@ -101,12 +110,12 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("only one of file-path or file-url is allowed", 1)
 	}
 
-	if name == "" {
-		if filePath != "" {
-			name = filepath.Base(filePath)
-		} else {
-			return cli.Exit("name is required", 1)
-		}
+	if name == "" && filePath != "" {
+		name = filepath.Base(filePath)
+	}
+
+	if name == "" && filePath == "" {
+		return cli.Exit("name is required", 1)
 	}
 
 	if description == "" {
@@ -122,6 +131,8 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("price must be a number (ex: 10.95)", 1)
 	}
 
+	priceInCents := uint64(math.Floor(price * 100))
+
 	var file *os.File
 	if filePath != "" {
 		file, err = os.Open(filePath)
@@ -136,24 +147,71 @@ func uploadFile(c *cli.Context) error {
 		defer file.Close()
 	}
 
-	req := &UploadFileRequest{
-		Name:         name,
-		Description:  description,
-		PriceInCents: uint64(math.Floor(price * 100)),
-		File:         file,
-		FileURL:      fileURL,
-	}
+	// Create a new multipart writer
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-	reqBody, err := json.Marshal(req)
+	// Add existing fields
+	err = writer.WriteField("name", name)
 	if err != nil {
 		slog.Debug(
-			"Failed to marshal request.",
+			"Failed to write name field.",
 			"error", err,
 		)
-
-		return cli.Exit("failed to marshal request", 1)
+		return cli.Exit("failed to write name field", 1)
+	}
+	err = writer.WriteField("description", description)
+	if err != nil {
+		slog.Debug(
+			"Failed to write description field.",
+			"error", err,
+		)
+		return cli.Exit("failed to write description field", 1)
+	}
+	err = writer.WriteField("price", strconv.FormatUint(priceInCents, 10))
+	if err != nil {
+		slog.Debug(
+			"Failed to write price field.",
+			"error", err,
+		)
+		return cli.Exit("failed to write price field", 1)
 	}
 
+	// Handle the cover image
+	if coverImagePath != "" {
+		coverFile, err := os.Open(coverImagePath)
+		if err != nil {
+			return cli.Exit("failed to open cover image file", 1)
+		}
+		defer coverFile.Close()
+
+		// Read the entire file into memory
+		coverData, err := io.ReadAll(coverFile)
+		if err != nil {
+			return cli.Exit("failed to read cover image file", 1)
+		}
+
+		// Encode to base64
+		base64CoverData := base64.StdEncoding.EncodeToString(coverData)
+
+		// Write base64 encoded data as a form field
+		err = writer.WriteField("cover", base64CoverData)
+		if err != nil {
+			slog.Debug(
+				"Failed to write cover field.",
+				"error", err,
+			)
+			return cli.Exit("failed to write cover field", 1)
+		}
+	}
+
+	// Close the writer to finalize the multipart message
+	err = writer.Close()
+	if err != nil {
+		return cli.Exit("failed to finalize multipart message", 1)
+	}
+
+	// Create a new HTTP client and request
 	client, err := client.NewHTTPClient()
 	if err != nil {
 		slog.Debug(
@@ -164,8 +222,11 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("failed to create HTTP client", 1)
 	}
 
-	method := http.MethodPost
-	resp, err := client.ExecuteRequest(method, uploadFilePath, reqBody)
+	// Execute the request
+	resp, err := client.ExecuteMultipartRequest(
+		http.MethodPost, uploadFilePath,
+		body.Bytes(), writer.FormDataContentType(),
+	)
 	if err != nil {
 		slog.Debug(
 			"Failed to execute request.",
