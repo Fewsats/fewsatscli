@@ -75,19 +75,11 @@ func (c *HttpClient) ExecuteRequest(method, path string,
 		return nil, fmt.Errorf("unable to create request: %w", err)
 	}
 
-	// do not require auth for signup / login
-	requireAuth := !strings.Contains(path, "/signup") &&
-		!strings.Contains(path, "/login")
-
 	switch {
 	case c.apiKey != "":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	case c.sessionCookie != nil:
 		req.AddCookie(c.sessionCookie)
-	case requireAuth:
-		// this should not happen, because we use RequiresLogin() to check
-		// if the user is logged in beforehand
-		return nil, fmt.Errorf("you need to log in to run this command")
 	}
 
 	if body != nil {
@@ -113,19 +105,11 @@ func (c *HttpClient) ExecuteMultipartRequest(method, path string,
 
 	req.Header.Set("Content-Type", contentType)
 
-	// do not require auth for signup / login
-	requireAuth := !strings.Contains(path, "/signup") &&
-		!strings.Contains(path, "/login")
-
 	switch {
 	case c.apiKey != "":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	case c.sessionCookie != nil:
 		req.AddCookie(c.sessionCookie)
-	case requireAuth:
-		// this should not happen, because we use RequiresLogin() to check
-		// if the user is logged in beforehand
-		return nil, fmt.Errorf("you need to log in to run this command")
 	}
 
 	if body != nil {
@@ -325,9 +309,34 @@ func DecodePrice(invoice string) (uint64, error) {
 	return uint64(msat / 1000), nil
 }
 
-// RequiresLogin checks for a valid API key and verifies it against
-// the /authorize endpoint.
+// RequiresLogin checks for a valid session or API key.
 func RequiresLogin() error {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return fmt.Errorf("unable to get config: %w", err)
+	}
+
+	// First, try to verify session with /v0/auth/me
+	url := fmt.Sprintf("%s%s", cfg.Domain, "/v0/auth/me")
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request for /v0/auth/me: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request for /v0/auth/me: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		return nil // Session is valid
+	}
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("unexpected status code from /v0/auth/me: %d", resp.StatusCode)
+	}
+
+	// If /v0/auth/me returns 401, check for any valid API keys
 	store := store.GetStore()
 	apiKeys, err := store.GetEnabledAPIKeys()
 	if err != nil {
@@ -341,7 +350,7 @@ func RequiresLogin() error {
 		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-			return nil
+			return nil // API key is valid
 		}
 
 		if resp.StatusCode == http.StatusUnauthorized {
