@@ -14,6 +14,7 @@ import (
 	"github.com/fewsats/fewsatscli/macaroons"
 	"github.com/fewsats/fewsatscli/storage"
 	"github.com/fewsats/fewsatscli/store"
+	"github.com/fewsats/fewsatscli/users"
 	"github.com/fewsats/fewsatscli/version"
 	"github.com/fewsats/fewsatscli/wallets"
 	"github.com/urfave/cli/v2"
@@ -95,6 +96,7 @@ func main() {
 			storage.Command(),
 			wallets.Command(),
 			macaroons.Command(),
+			users.Command(),
 		},
 	}
 

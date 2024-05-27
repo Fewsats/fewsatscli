@@ -329,7 +329,7 @@ func RequiresLogin() error {
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		return nil // Session is valid
+		return nil
 	}
 
 	if resp.StatusCode != http.StatusUnauthorized {
@@ -350,7 +350,7 @@ func RequiresLogin() error {
 		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-			return nil // API key is valid
+			return nil
 		}
 
 		if resp.StatusCode == http.StatusUnauthorized {
@@ -370,7 +370,7 @@ func verifyAPIKey(key string) (*http.Response, error) {
 	}
 
 	// using list apikeys to verify, ideally change to a custom authorize endpoint
-	url := fmt.Sprintf("%s%s", cfg.Domain, "/v0/auth/apikeys")
+	url := fmt.Sprintf("%s%s", cfg.Domain, "/v0/auth/me")
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
