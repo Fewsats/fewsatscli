@@ -4,49 +4,57 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// User represents a platfomr user.
+type User struct {
+	// Email is the email address of the user. It is used as the unique
+	// identifier for the user.
+	Email string `json:"email"`
+
+	// Username is the username of the user.
+	Username string `json:"username"`
+
+	// ProfileImageURL is the URL of the profile image of the user.
+	ProfileImageURL string `json:"profile_image_url"`
+}
+
 // BillingInformation represents a user's billing information.
 type BillingInformation struct {
-	// ID is the auto-incrementing ID of the billing information.
-	ID uint64
-
-	// UserID is the ID of the user the billing information belongs to.
-	UserID uint64
 
 	// FirstName is the first name of the user.
-	FirstName string
+	FirstName string `json:"first_name"`
 
 	// LastName is the last name of the user.
-	LastName string
+	LastName string `json:"last_name"`
 
 	// AccountType is the type of account the user has.
-	AccountType string
+	AccountType string `json:"account_type"`
 
 	// CompanyName is the name of the user's company.
-	CompanyName string
+	CompanyName string `json:"company_name"`
 
 	// Currency is the currency the user pays in.
-	Currency string
+	Currency string `json:"currency"`
 
 	// Address is the street address of the billing address.
-	Address string
+	Address string `json:"address"`
 
 	// City is the city of the billing address.
-	City string
+	City string `json:"city"`
 
 	// State is the state of the billing address.
-	State string
+	State string `json:"state"`
 
 	// Country is the country of the billing address.
-	Country string
+	Country string `json:"country"`
 
 	// PostalCode is the postal code of the billing address.
-	PostalCode string
+	PostalCode string `json:"postal_code"`
 
 	// VatNumber is the VAT number of the user.
-	VatNumber string
+	VatNumber string `json:"vat_number"`
 
 	// TaxID is the tax ID of the user.
-	TaxID string
+	TaxID string `json:"tax_id"`
 }
 
 func Command() *cli.Command {
@@ -56,6 +64,8 @@ func Command() *cli.Command {
 		Subcommands: []*cli.Command{
 			getBillingCommand,
 			updateBillingCommand,
+			getUserDetailsCommand,
+			updateUserDetailsCommand,
 		},
 	}
 }

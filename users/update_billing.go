@@ -3,10 +3,12 @@ package users
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"log/slog"
 	"net/http"
-	"github.com/urfave/cli/v2"
+	"os"
+
 	"github.com/fewsats/fewsatscli/client"
+	"github.com/urfave/cli/v2"
 )
 
 var updateBillingCommand = &cli.Command{
@@ -28,7 +30,7 @@ var updateBillingCommand = &cli.Command{
 func updateBillingInformation(c *cli.Context) error {
 	var billingInfo BillingInformation
 	if filePath := c.String("file"); filePath != "" {
-		fileContent, err := ioutil.ReadFile(filePath)
+		fileContent, err := os.ReadFile(filePath)
 		if err != nil {
 			return cli.Exit(fmt.Sprintf("Failed to read file: %s", err), 1)
 		}
@@ -50,11 +52,13 @@ func updateBillingInformation(c *cli.Context) error {
 
 	client, err := client.NewHTTPClient()
 	if err != nil {
+		slog.Debug("Failed to create HTTP client.", "error", err)
 		return cli.Exit("Failed to create HTTP client", 1)
 	}
 
 	resp, err := client.ExecuteRequest(http.MethodPut, "/v0/users/billing", reqBody)
 	if err != nil {
+		slog.Debug("Failed to update billing information.", "error", err)
 		return cli.Exit("Failed to update billing information", 1)
 	}
 	defer resp.Body.Close()
