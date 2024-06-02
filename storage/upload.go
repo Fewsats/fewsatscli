@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,15 +22,6 @@ const (
 	// uploadFilePath is the path to the upload endpoint.
 	uploadFilePath = "/v0/storage/upload"
 )
-
-// UploadFileRequest is the request body for the upload endpoint.
-type UploadFileRequest struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	PriceInCents uint64   `json:"price_in_usd_cents"`
-	File         *os.File `json:"file"`
-	FileURL      string   `json:"file_url"`
-}
 
 // UploadFileResponse is the response body for the upload endpoint.
 type UploadFileResponse struct {
@@ -70,6 +60,10 @@ var uploadFileCommand = &cli.Command{
 			Name:  "cover-image",
 			Usage: "The file path of the cover image to upload.",
 		},
+		&cli.StringSliceFlag{
+			Name:  "tags",
+			Usage: "Tags associated with the file.",
+		},
 	},
 	Action: uploadFile,
 }
@@ -95,22 +89,13 @@ func uploadFile(c *cli.Context) error {
 	description := c.String("description")
 	priceStr := c.String("price")
 	filePath := c.String("file-path")
-	fileURL := c.String("file-url")
 	coverImagePath := c.String("cover-image")
 
-	if fileURL != "" {
-		return cli.Exit("file-url parameter is not implemented yet", 1)
+	if filePath == "" {
+		return cli.Exit("file-path is required", 1)
 	}
 
-	if filePath == "" && fileURL == "" {
-		return cli.Exit("file-path or file-url is required", 1)
-	}
-
-	if filePath != "" && fileURL != "" {
-		return cli.Exit("only one of file-path or file-url is allowed", 1)
-	}
-
-	if name == "" && filePath != "" {
+	if name == "" {
 		name = filepath.Base(filePath)
 	}
 
@@ -168,7 +153,7 @@ func uploadFile(c *cli.Context) error {
 		)
 		return cli.Exit("failed to write description field", 1)
 	}
-	err = writer.WriteField("price", strconv.FormatUint(priceInCents, 10))
+	err = writer.WriteField("price_in_cents", strconv.FormatUint(priceInCents, 10))
 	if err != nil {
 		slog.Debug(
 			"Failed to write price field.",
@@ -177,7 +162,7 @@ func uploadFile(c *cli.Context) error {
 		return cli.Exit("failed to write price field", 1)
 	}
 
-	// Handle the cover image
+	// Handle the cover image as a file instead of base64 string
 	if coverImagePath != "" {
 		coverFile, err := os.Open(coverImagePath)
 		if err != nil {
@@ -185,23 +170,20 @@ func uploadFile(c *cli.Context) error {
 		}
 		defer coverFile.Close()
 
-		// Read the entire file into memory
-		coverData, err := io.ReadAll(coverFile)
+		part, err := writer.CreateFormFile("cover", filepath.Base(coverImagePath))
 		if err != nil {
-			return cli.Exit("failed to read cover image file", 1)
+			return cli.Exit("failed to create form file for cover image", 1)
 		}
+		if _, err := io.Copy(part, coverFile); err != nil {
+			return cli.Exit("failed to write cover image file to form", 1)
+		}
+	}
 
-		// Encode to base64
-		base64CoverData := base64.StdEncoding.EncodeToString(coverData)
-
-		// Write base64 encoded data as a form field
-		err = writer.WriteField("cover", base64CoverData)
-		if err != nil {
-			slog.Debug(
-				"Failed to write cover field.",
-				"error", err,
-			)
-			return cli.Exit("failed to write cover field", 1)
+	// Handle tags
+	tags := c.StringSlice("tags")
+	for _, tag := range tags {
+		if err := writer.WriteField("tags", tag); err != nil {
+			return cli.Exit("failed to write tag field", 1)
 		}
 	}
 

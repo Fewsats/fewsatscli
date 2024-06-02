@@ -22,6 +22,7 @@ type File struct {
 	PriceInUsdCents uint64    `json:"price_in_usd_cents"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	Tags            []string  `json:"tags"`
 }
 
 var listCommand = &cli.Command{
