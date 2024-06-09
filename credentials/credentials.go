@@ -3,7 +3,7 @@ package credentials
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"regexp"
 	"time"
 )
 
@@ -61,6 +61,12 @@ func ParseL402Challenge(externalID string,
 	}, nil
 }
 
+// Precompiled regular expressions for performance
+var (
+	macaroonRegex = regexp.MustCompile(`macaroon="([^"]+)"`)
+	invoiceRegex  = regexp.MustCompile(`invoice="([^"]+)"`)
+)
+
 // parseL402Challenge parses an L402 challenge and returns the macaroon and
 // invoice.
 func parseL402Challenge(challenge string) (string, string, error) {
@@ -68,21 +74,16 @@ func parseL402Challenge(challenge string) (string, string, error) {
 		return "", "", fmt.Errorf("no L402 challenge/empty header found")
 	}
 
-	// Split the challenge into its parts.
-	parts := strings.Split(challenge, " ")
+	macaroonMatches := macaroonRegex.FindStringSubmatch(challenge)
+	invoiceMatches := invoiceRegex.FindStringSubmatch(challenge)
 
-	var macaroon, invoice string
-	for _, part := range parts {
-		if strings.HasPrefix(part, "macaroon=") {
-			macaroon = strings.TrimPrefix(part, "macaroon=")
-		} else if strings.HasPrefix(part, "invoice=") {
-			invoice = strings.TrimPrefix(part, "invoice=")
-		}
+	if macaroonMatches == nil || invoiceMatches == nil {
+		return "", "", fmt.Errorf("missing macaroon/invoice in challenge: %s", challenge)
 	}
 
-	if macaroon == "" || invoice == "" {
-		return "", "", fmt.Errorf("missing macaroon/invoice: %s", challenge)
-	}
+	// Extracting the values from the regex matches
+	macaroon := macaroonMatches[1]
+	invoice := invoiceMatches[1]
 
 	return macaroon, invoice, nil
 }

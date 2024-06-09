@@ -166,10 +166,6 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		return nil, fmt.Errorf("unable to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	}
-
 	// check if we already paid the invoice and it's in the DB
 	externalID := getExternalID(url)
 	creds, err := getL402Credentials(externalID)

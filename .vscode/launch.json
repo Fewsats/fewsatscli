@@ -25,10 +25,12 @@
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
                 "--verbose",
+                "--profile", "staging",
                 "storage", "download",
-                "ef6e5fec-467a-46a6-951f-a1167cb69f9d"
+                "7d8400e5-d951-4aaf-b365-2840676f70b4"
 
             ],
+            "console": "externalTerminal"
         },
         {
             "name": "Create account",
