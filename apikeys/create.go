@@ -28,6 +28,10 @@ var createCommand = &cli.Command{
 			Value:       24 * 7 * 4 * time.Hour,
 			DefaultText: "28 days",
 		},
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "An optional name for the API key",
+		},
 	},
 
 	Action: newApiKey,
@@ -36,6 +40,7 @@ var createCommand = &cli.Command{
 // CreateAPIKeyRequest is the request body for the create api key endpoint.
 type CreateAPIKeyRequest struct {
 	Duration time.Duration `json:"duration"`
+	Name     string        `json:"name"`
 }
 
 // CreateAPIKeyResponse is the response body for the create api key endpoint.
@@ -46,8 +51,8 @@ type CreateAPIKeyResponse struct {
 }
 
 // CreateAPIKey is an exported function to create an API key.
-func CreateAPIKey(duration time.Duration, sessionCookie *http.Cookie) (string, *time.Time, error) {
-	req := &CreateAPIKeyRequest{Duration: duration}
+func CreateAPIKey(duration time.Duration, name string, sessionCookie *http.Cookie) (string, *time.Time, error) {
+	req := &CreateAPIKeyRequest{Duration: duration, Name: name}
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		slog.Debug("Failed to marshal JSON body.", "error", err)
@@ -101,7 +106,9 @@ func newApiKey(c *cli.Context) error {
 	}
 
 	duration := c.Duration("duration")
-	apiKey, expiresAt, err := CreateAPIKey(duration, nil)
+	name := c.String("name")
+
+	apiKey, expiresAt, err := CreateAPIKey(duration, name, nil)
 	if err != nil {
 		return cli.Exit(err.Error(), 1)
 	}
