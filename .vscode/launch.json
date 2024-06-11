@@ -62,10 +62,9 @@
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
-                // "--profile", "staging",
+                "--profile", "production",
                 "apikeys", "list",
             ],
-            "console": "externalTerminal"
         },
         {
             "name": "Create API key",
