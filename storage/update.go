@@ -55,7 +55,7 @@ func updateFile(c *cli.Context) error {
 		updateData["description"] = description
 	}
 	if price := c.Uint64("price"); price > 0 {
-		updateData["price_in_usd_cents"] = price
+		updateData["price_in_cents"] = price
 	}
 
 	client, err := client.NewHTTPClient()

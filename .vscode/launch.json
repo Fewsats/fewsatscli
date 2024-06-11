@@ -8,11 +8,13 @@
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
+                "--verbose",
                 "storage", "upload",
                 "--name", "Steps Towards Artificial Intelligence",
                 "--price", "0.05",
                 "--file-path", "${workspaceFolder}/minsky.pdf",
-                "--description", "Steps Towards Artificial Intelligence paper by Marvin Minsky 1961"
+                "--description", "Steps Towards Artificial Intelligence paper by Marvin Minsky 1961",
+                "--cover-image", "${workspaceFolder}/Zhuangzi.png"
             ]
         },
         {
@@ -23,10 +25,12 @@
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
                 "--verbose",
+                "--profile", "staging",
                 "storage", "download",
-                "ef6e5fec-467a-46a6-951f-a1167cb69f9d"
+                "7d8400e5-d951-4aaf-b365-2840676f70b4"
 
             ],
+            "console": "externalTerminal"
         },
         {
             "name": "Create account",
@@ -58,7 +62,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
-                "--profile", "staging",
+                // "--profile", "staging",
                 "apikeys", "list",
             ],
             "console": "externalTerminal"
@@ -70,6 +74,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
+                "--verbose",
                 "apikeys", "new",
             ],
             "console": "externalTerminal"

@@ -122,7 +122,7 @@ func Login(email, password string) (*http.Cookie, error) {
 		return nil, cli.Exit("Session cookie not found.", 1)
 	}
 
-	apiKey, expiresAt, err := apikeys.CreateAPIKey(24*7*4*time.Hour, sessionCookie)
+	apiKey, expiresAt, err := apikeys.CreateAPIKey(24*7*4*time.Hour, "default", sessionCookie)
 	if err != nil {
 		slog.Debug("Failed to create API key on login.", "error", err)
 		return nil, cli.Exit("Failed to create API key on login.", 1)

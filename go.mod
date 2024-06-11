@@ -12,6 +12,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/term v0.19.0
 	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/macaroon.v2 v2.1.0
 )
 
 require (
@@ -60,6 +61,5 @@ require (
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
-	gopkg.in/macaroon.v2 v2.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
