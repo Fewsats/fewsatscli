@@ -12,6 +12,7 @@ func Command() *cli.Command {
 			createCommand,
 			listCommand,
 			disableCommand,
+			addCommand,
 		},
 	}
 }
