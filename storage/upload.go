@@ -145,6 +145,17 @@ func uploadFile(c *cli.Context) error {
 		)
 		return cli.Exit("failed to write name field", 1)
 	}
+
+	// Add existing fields
+	err = writer.WriteField("file_name", name)
+	if err != nil {
+		slog.Debug(
+			"Failed to write file_name field.",
+			"error", err,
+		)
+		return cli.Exit("failed to write file_name field", 1)
+	}
+
 	err = writer.WriteField("description", description)
 	if err != nil {
 		slog.Debug(

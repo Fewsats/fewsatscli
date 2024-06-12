@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/fewsats/fewsatscli/config"
@@ -77,30 +76,11 @@ func downloadFile(c *cli.Context) error {
 		return cli.Exit("failed to download file", 1)
 	}
 
-	// Get the Content-Disposition header
-	contentDisposition := resp.Header.Get("Content-Disposition")
-
-	// Split the header value by ";"
-	parts := strings.Split(contentDisposition, ";")
-
-	// Initialize the filename
-	var fileName string
-
-	// Loop over the parts and find the filename
-	for _, part := range parts {
-		if strings.Contains(part, "filename") {
-			// Split the part by "=" and get the second element
-			fileName = strings.Split(part, "=")[1]
-			// Trim the quotes from the filename
-			fileName = strings.Trim(fileName, "\"")
-			break
-		}
-	}
-
+	fileName := resp.Header.Get("file-name")
 	if fileName == "" {
 		slog.Debug(
 			"Failed to parse filename",
-			"content_disposition", contentDisposition,
+			"header", resp.Header,
 		)
 
 		return cli.Exit("failed to parse filename", 1)
