@@ -30,11 +30,6 @@ var createCommand = &cli.Command{
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:     "duration",
-			Usage:    "The duration for the gateway (e.g., '24h', '7d')",
-			Required: true,
-		},
-		&cli.StringFlag{
 			Name:     "name",
 			Usage:    "The name of the gateway",
 			Required: true,
@@ -56,14 +51,12 @@ func createGateway(c *cli.Context) error {
 
 	amount := c.Uint64("amount")
 	targetURL := c.String("target-url")
-	duration := c.String("duration")
 	name := c.String("name")
 	description := c.String("description")
 
 	req := CreateGatewayRequest{
 		Amount:      amount,
 		TargetURL:   targetURL,
-		Duration:    duration,
 		Name:        name,
 		Description: description,
 	}

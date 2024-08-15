@@ -26,6 +26,7 @@ func Command() *cli.Command {
 			deleteCommand,
 			listCommand,
 			searchCommand,
+			accessCommand,
 		},
 	}
 }
