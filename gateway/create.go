@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/urfave/cli/v2"
@@ -92,23 +91,33 @@ func createGateway(c *cli.Context) error {
 		return cli.Exit(fmt.Sprintf("Failed to create gateway. Status code: %d, Body: %s", resp.StatusCode, string(bodyBytes)), 1)
 	}
 
-	// Print raw response body for debugging
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	fmt.Printf("Raw response: %s\n", string(bodyBytes))
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return cli.Exit(fmt.Sprintf("Failed to read response body: %v", err), 1)
+	}
 
+	// Unmarshal the response into a Gateway struct
 	var gateway Gateway
 	err = json.Unmarshal(bodyBytes, &gateway)
 	if err != nil {
 		return cli.Exit(fmt.Sprintf("Failed to decode response: %v. Raw response: %s", err, string(bodyBytes)), 1)
 	}
 
-	fmt.Println("Gateway created successfully:")
-	fmt.Printf("Name: %s\n", gateway.Name)
-	fmt.Printf("Description: %s\n", gateway.Description)
-	fmt.Printf("Target URL: %s\n", gateway.TargetURL)
-	// TODO(pol) this is not being returned as it's pricing's responsibility
-	fmt.Printf("Amount: %d sats\n", gateway.Amount)
-	fmt.Printf("Duration: %s\n", gateway.Duration)
+	// Create a response struct to match the format of other commands
+	response := struct {
+		Gateway Gateway `json:"gateway"`
+	}{
+		Gateway: gateway,
+	}
+
+	// Marshal the response struct to JSON
+	jsonOutput, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return cli.Exit("Failed to marshal JSON.", 1)
+	}
+
+	fmt.Println(string(jsonOutput))
 
 	return nil
 }
@@ -119,18 +128,4 @@ type CreateGatewayRequest struct {
 	Duration    string `json:"duration"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-}
-
-type Gateway struct {
-	UserID      uint64    `json:"UserID"`
-	ID          uint64    `json:"ID"`
-	ExternalID  string    `json:"ExternalID"`
-	TargetURL   string    `json:"TargetURL"`
-	Status      string    `json:"Status"`
-	Name        string    `json:"Name"`
-	Description string    `json:"Description"`
-	Amount      uint64    `json:"Amount"`
-	Duration    string    `json:"Duration"`
-	CreatedAt   time.Time `json:"CreatedAt"`
-	UpdatedAt   time.Time `json:"UpdatedAt"`
 }
