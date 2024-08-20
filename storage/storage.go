@@ -31,7 +31,6 @@ func Command() *cli.Command {
 			downloadFileCommand,
 			listCommand,
 			getCommand,
-			updateCommand,
 			deleteCommand,
 			searchCommand,
 		},

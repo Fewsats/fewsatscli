@@ -20,8 +20,8 @@ var createCommand = &cli.Command{
 	Usage: "Create a new gateway.",
 	Flags: []cli.Flag{
 		&cli.Uint64Flag{
-			Name:     "amount",
-			Usage:    "The amount in sats for the gateway",
+			Name:     "price",
+			Usage:    "The price in cents for the gateway",
 			Required: true,
 		},
 		&cli.StringFlag{
@@ -49,16 +49,16 @@ func createGateway(c *cli.Context) error {
 		return cli.Exit("You need to log in to run this command.", 1)
 	}
 
-	amount := c.Uint64("amount")
+	priceInCents := c.Uint64("price")
 	targetURL := c.String("target-url")
 	name := c.String("name")
 	description := c.String("description")
 
 	req := CreateGatewayRequest{
-		Amount:      amount,
-		TargetURL:   targetURL,
-		Name:        name,
-		Description: description,
+		PriceInCents: priceInCents,
+		TargetURL:    targetURL,
+		Name:         name,
+		Description:  description,
 	}
 
 	jsonData, err := json.Marshal(req)
@@ -116,9 +116,9 @@ func createGateway(c *cli.Context) error {
 }
 
 type CreateGatewayRequest struct {
-	Amount      uint64 `json:"amount"`
-	TargetURL   string `json:"target_url"`
-	Duration    string `json:"duration"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	PriceInCents uint64 `json:"price_in_cents"`
+	TargetURL    string `json:"target_url"`
+	Duration     string `json:"duration"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
 }
