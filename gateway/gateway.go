@@ -25,6 +25,7 @@ func Command() *cli.Command {
 		Subcommands: []*cli.Command{
 			createCommand,
 			getCommand,
+			visitsCommand,
 			deleteCommand,
 			listCommand,
 			searchCommand,
