@@ -1,4 +1,4 @@
-package storage
+package gateway
 
 import (
 	"encoding/json"
@@ -12,11 +12,23 @@ import (
 
 var listCommand = &cli.Command{
 	Name:   "list",
-	Usage:  "List all files.",
-	Action: listFiles,
+	Usage:  "List all gateways.",
+	Action: listGateways,
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "limit",
+			Usage: "Limit the number of results",
+			Value: 100,
+		},
+		&cli.IntFlag{
+			Name:  "offset",
+			Usage: "Offset for pagination",
+			Value: 0,
+		},
+	},
 }
 
-func listFiles(c *cli.Context) error {
+func listGateways(c *cli.Context) error {
 	err := client.RequiresLogin()
 	if err != nil {
 		return cli.Exit("You need to log in to run this command.", 1)
@@ -28,7 +40,11 @@ func listFiles(c *cli.Context) error {
 		return cli.Exit("Failed to create HTTP client.", 1)
 	}
 
-	resp, err := client.ExecuteRequest(http.MethodGet, "/v0/storage?limit=100", nil)
+	limit := c.Int("limit")
+	offset := c.Int("offset")
+
+	url := fmt.Sprintf("/v0/gateway?limit=%d&offset=%d", limit, offset)
+	resp, err := client.ExecuteRequest(http.MethodGet, url, nil)
 	if err != nil {
 		slog.Debug("Failed to execute request.", "error", err)
 		return cli.Exit("Failed to execute request.", 1)
@@ -40,11 +56,11 @@ func listFiles(c *cli.Context) error {
 	}
 
 	var response struct {
-		Files []File `json:"files"`
+		Gateways []Gateway `json:"gateways"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return cli.Exit("Failed to decode files.", 1)
+		return cli.Exit("Failed to decode gateways.", 1)
 	}
 
 	jsonOutput, err := json.MarshalIndent(response, "", "  ")

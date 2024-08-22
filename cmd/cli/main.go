@@ -11,6 +11,7 @@ import (
 	"github.com/fewsats/fewsatscli/account"
 	"github.com/fewsats/fewsatscli/apikeys"
 	"github.com/fewsats/fewsatscli/config"
+	"github.com/fewsats/fewsatscli/gateway"
 	"github.com/fewsats/fewsatscli/macaroons"
 	"github.com/fewsats/fewsatscli/storage"
 	"github.com/fewsats/fewsatscli/store"
@@ -97,6 +98,7 @@ func main() {
 			wallets.Command(),
 			macaroons.Command(),
 			users.Command(),
+			gateway.Command(),
 		},
 	}
 

@@ -1,4 +1,4 @@
-package storage
+package gateway
 
 import (
 	"encoding/json"
@@ -10,13 +10,29 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var listCommand = &cli.Command{
-	Name:   "list",
-	Usage:  "List all files.",
-	Action: listFiles,
+const (
+	searchGatewaysPath = "/v0/gateway/search"
+)
+
+var searchCommand = &cli.Command{
+	Name:   "search",
+	Usage:  "Search gateways.",
+	Action: searchGateways,
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "limit",
+			Usage: "Limit the number of results",
+			Value: 10,
+		},
+		&cli.IntFlag{
+			Name:  "offset",
+			Usage: "Offset for pagination",
+			Value: 0,
+		},
+	},
 }
 
-func listFiles(c *cli.Context) error {
+func searchGateways(c *cli.Context) error {
 	err := client.RequiresLogin()
 	if err != nil {
 		return cli.Exit("You need to log in to run this command.", 1)
@@ -28,7 +44,11 @@ func listFiles(c *cli.Context) error {
 		return cli.Exit("Failed to create HTTP client.", 1)
 	}
 
-	resp, err := client.ExecuteRequest(http.MethodGet, "/v0/storage?limit=100", nil)
+	limit := c.Int("limit")
+	offset := c.Int("offset")
+
+	url := fmt.Sprintf("%s?limit=%d&offset=%d", searchGatewaysPath, limit, offset)
+	resp, err := client.ExecuteRequest(http.MethodGet, url, nil)
 	if err != nil {
 		slog.Debug("Failed to execute request.", "error", err)
 		return cli.Exit("Failed to execute request.", 1)
@@ -40,13 +60,14 @@ func listFiles(c *cli.Context) error {
 	}
 
 	var response struct {
-		Files []File `json:"files"`
+		Gateways []Gateway `json:"gateways"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return cli.Exit("Failed to decode files.", 1)
+		return cli.Exit("Failed to decode response.", 1)
 	}
 
+	// Marshal the response struct to JSON
 	jsonOutput, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
 		return cli.Exit("Failed to marshal JSON.", 1)

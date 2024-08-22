@@ -67,6 +67,19 @@
             ],
         },
         {
+            "name": "Update Gateway",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "gateway", "update",
+                "--id", "4e1a4fb4-111d-442c-acba-a0152147e4ec",
+                "--name", "test",
+                "--price", "69",
+            ],
+        },
+        {
             "name": "Create API key",
             "type": "go",
             "request": "launch",

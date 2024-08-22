@@ -1,4 +1,4 @@
-package storage
+package gateway
 
 import (
 	"encoding/json"
@@ -10,17 +10,24 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var listCommand = &cli.Command{
-	Name:   "list",
-	Usage:  "List all files.",
-	Action: listFiles,
+var getCommand = &cli.Command{
+	Name:      "get",
+	Usage:     "Get a gateway by ID.",
+	ArgsUsage: "<gateway_id>",
+	Action:    getGateway,
 }
 
-func listFiles(c *cli.Context) error {
+func getGateway(c *cli.Context) error {
 	err := client.RequiresLogin()
 	if err != nil {
 		return cli.Exit("You need to log in to run this command.", 1)
 	}
+
+	if c.Args().Len() < 1 {
+		return cli.Exit("missing <gateway_id> argument", 1)
+	}
+
+	gatewayID := c.Args().Get(0)
 
 	client, err := client.NewHTTPClient()
 	if err != nil {
@@ -28,7 +35,7 @@ func listFiles(c *cli.Context) error {
 		return cli.Exit("Failed to create HTTP client.", 1)
 	}
 
-	resp, err := client.ExecuteRequest(http.MethodGet, "/v0/storage?limit=100", nil)
+	resp, err := client.ExecuteRequest(http.MethodGet, fmt.Sprintf("/v0/gateway/%s", gatewayID), nil)
 	if err != nil {
 		slog.Debug("Failed to execute request.", "error", err)
 		return cli.Exit("Failed to execute request.", 1)
@@ -40,11 +47,11 @@ func listFiles(c *cli.Context) error {
 	}
 
 	var response struct {
-		Files []File `json:"files"`
+		Gateway Gateway `json:"gateway"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return cli.Exit("Failed to decode files.", 1)
+		return cli.Exit("Failed to decode gateway.", 1)
 	}
 
 	jsonOutput, err := json.MarshalIndent(response, "", "  ")
