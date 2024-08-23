@@ -55,7 +55,7 @@ func downloadFile(c *cli.Context) error {
 		return cli.Exit("failed to create http client", 1)
 	}
 
-	resp, err := httpClient.ExecuteL402Request(http.MethodGet, file_url, nil)
+	resp, err := httpClient.ExecuteL402Request(http.MethodGet, file_url, nil, nil)
 	if err != nil {
 		slog.Debug(
 			"Failed to execute L402 request.",

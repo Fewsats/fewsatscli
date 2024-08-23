@@ -159,11 +159,15 @@ func saveL402Credentials(creds *credentials.L402Credentials) error {
 // If the response status code is 402, it will show the user the price of the request
 // and ask if they would like to proceed.
 func (c *HttpClient) ExecuteL402Request(method, url string,
-	body []byte) (*http.Response, error) {
+	body io.Reader, contentType *string) (*http.Response, error) {
 
-	req, err := http.NewRequest(method, url, nil)
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %w", err)
+	}
+
+	if contentType != nil {
+		req.Header.Set("Content-Type", *contentType)
 	}
 
 	// check if we already paid the invoice and it's in the DB
@@ -189,10 +193,6 @@ func (c *HttpClient) ExecuteL402Request(method, url string,
 		}
 
 		req.Header.Set("Authorization", header)
-	}
-
-	if body != nil {
-		req.Body = io.NopCloser(bytes.NewReader(body))
 	}
 
 	resp, err := c.client.Do(req)

@@ -102,6 +102,20 @@
                 "--type", "alby",
                 "--token", "this"
             ],
+        },
+        {
+            "name": "Gateway Access POST",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "gateway", "access",
+                "--method", "POST",
+                "http://localhost:8080/v0/gateway/access/7aa4f81e-0115-4135-b874-712040cada4b",
+            ],
+            "env": {},
+            "showLog": true
         }
     ]
 }

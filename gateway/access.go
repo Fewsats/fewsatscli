@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/fewsats/fewsatscli/client"
 	"github.com/fewsats/fewsatscli/config"
@@ -20,7 +21,25 @@ var accessCommand = &cli.Command{
 	Name:      "access",
 	Usage:     "Access a gateway endpoint.",
 	ArgsUsage: "<gateway_id>",
-	Action:    accessGateway,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "method",
+			Aliases: []string{"m"},
+			Value:   "GET",
+			Usage:   "HTTP method to use for the request (GET, POST, PUT, etc.)",
+		},
+		&cli.StringFlag{
+			Name:    "body",
+			Aliases: []string{"b"},
+			Usage:   "Request body to send",
+		},
+		&cli.StringFlag{
+			Name:  "content-type",
+			Value: "application/json",
+			Usage: "Content-Type header for the request",
+		},
+	},
+	Action: accessGateway,
 }
 
 func accessGateway(c *cli.Context) error {
@@ -51,11 +70,21 @@ func accessGateway(c *cli.Context) error {
 		return cli.Exit("failed to create http client", 1)
 	}
 
-	resp, err := httpClient.ExecuteL402Request(http.MethodGet, gatewayURL, nil)
+	method := c.String("method")
+	body := c.String("body")
+	contentType := c.String("content-type")
+
+	var bodyReader io.Reader
+	if body != "" {
+		bodyReader = strings.NewReader(body)
+	}
+
+	resp, err := httpClient.ExecuteL402Request(method, gatewayURL, bodyReader, &contentType)
 	if err != nil {
 		slog.Debug(
 			"Failed to execute L402 request.",
 			"error", err,
+			"method", method,
 		)
 		return cli.Exit("failed to execute request", 1)
 	}
@@ -70,7 +99,7 @@ func accessGateway(c *cli.Context) error {
 	}
 
 	// Read the response body
-	body, err := io.ReadAll(resp.Body)
+	bodyResp, err := io.ReadAll(resp.Body)
 	if err != nil {
 		slog.Debug(
 			"Failed to read response body",
@@ -80,7 +109,7 @@ func accessGateway(c *cli.Context) error {
 	}
 
 	// Print the response body
-	fmt.Println(string(body))
+	fmt.Println(string(bodyResp))
 
 	return nil
 }
