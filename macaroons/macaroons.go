@@ -11,6 +11,8 @@ func Command() *cli.Command {
 		Usage: "Interact with macaroon tokens.",
 		Subcommands: []*cli.Command{
 			decodeCommand,
+			mintCommand,
+			validateCommand,
 		},
 	}
 }

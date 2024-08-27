@@ -110,12 +110,24 @@
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/cli/main.go",
             "args": [
+                "--profile", "production",
                 "gateway", "access",
                 "--method", "POST",
-                "http://localhost:8080/v0/gateway/access/7aa4f81e-0115-4135-b874-712040cada4b",
+                "51be29af-c243-4807-9c96-a697a10e3dad",
             ],
             "env": {},
             "showLog": true
+        },
+        {
+            "name": "Decode Macaroon",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/cli/main.go",
+            "args": [
+                "macaroons", "decode",
+                "AgETaHR0cHM6Ly9leGFtcGxlLmNvbQIgNMN9W3jYIj1ocwmlj06lvScziM5vJecg/6ay89d4EJYAAhByZXNvdXJjZV9pZD0xMjM0AAIRZXhwaXJ5PTIwMjMtMTItMzEAAAYgWbC/dR/hrXg1t38bV+pgcCfA6SFziRIPHlqB8VRtqiY="
+            ]
         }
     ]
 }
