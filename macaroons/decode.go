@@ -64,7 +64,7 @@ func decode(c *cli.Context) error {
 	}
 
 	token := c.Args().Get(0)
-	macBytes, err := base64.StdEncoding.DecodeString(token)
+	macBytes, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return cli.Exit(fmt.Sprintf("Unable to decode base64 macaroon: %v", err), 1)
 	}
